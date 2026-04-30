@@ -1,30 +1,31 @@
 import { useState } from 'react';
 import { DashboardSection, EventCards, PageTitle } from '../../components/CommonBlocks';
 import { notify } from '../../utils/notifications';
+import TextField from '../../components/ui/TextField';
 
-const initialEvents = [
-  { title: 'System Review Meeting', time: '2024-01-15 · 10:00 AM (60 mins)', metaA: 'Participants: Tech Team, HR Team', metaB: 'Conference Room A', status: 'confirmed', primary: 'Get Directions' },
-  { title: 'Client Onboarding - Tech Armenia', time: '2024-01-16 · 2:00 PM (90 mins)', metaA: 'Participants: Armen Sarkissian, Gayane Mkrtchyan', metaB: 'Virtual Meeting', status: 'pending', primary: 'Join Meeting' },
-  { title: 'Platform Maintenance Window', time: '2024-01-17 · 11:00 PM (2 hours)', metaA: 'All systems will be down for updates', metaB: 'Scheduled maintenance', status: 'confirmed', primary: 'View Details' },
-];
+const initialEvents = [];
 
 const emptyForm = { title: '', date: '', time: '', duration: '60', participants: '', location: '', description: '' };
 
-const activities = [
-  ['System Review', 'Tomorrow at 10:00 AM'],
-  ['Client Onboarding', 'Tomorrow at 2:00 PM'],
-  ['Platform Maintenance', 'In 2 days at 11:00 PM'],
-];
+const activities = [];
 
 export default function AdminSchedulePage() {
   const [events, setEvents] = useState(initialEvents);
   const [showAddEvent, setShowAddEvent] = useState(false);
   const [eventForm, setEventForm] = useState(emptyForm);
+  const [formErrors, setFormErrors] = useState({});
 
   const updateField = (field, value) => setEventForm((current) => ({ ...current, [field]: value }));
 
   const handleAddEvent = (e) => {
     e.preventDefault();
+    const nextErrors = {};
+    if (!eventForm.title.trim()) nextErrors.title = 'Event title is required';
+    if (!eventForm.date) nextErrors.date = 'Date is required';
+    if (!eventForm.time) nextErrors.time = 'Time is required';
+    setFormErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
+
     const newEvent = {
       title: eventForm.title,
       time: `${eventForm.date} · ${eventForm.time} (${eventForm.duration} mins)`,
@@ -35,8 +36,14 @@ export default function AdminSchedulePage() {
     };
     setEvents([...events, newEvent]);
     setEventForm(emptyForm);
+    setFormErrors({});
     setShowAddEvent(false);
     notify('Event added successfully.', 'success');
+  };
+
+  const handleCancel = () => {
+    setShowAddEvent(false);
+    setFormErrors({});
   };
 
   return (
@@ -46,24 +53,32 @@ export default function AdminSchedulePage() {
         subtitle="Overview of all platform activities and meetings"
         actions={<button className="btn-dark" onClick={() => setShowAddEvent(!showAddEvent)}>{showAddEvent ? 'Cancel' : '+ Add Event'}</button>}
       />
-      {showAddEvent && <AdminEventForm eventForm={eventForm} onFieldChange={updateField} onSubmit={handleAddEvent} onCancel={() => setShowAddEvent(false)} />}
+      {showAddEvent && (
+        <AdminEventForm
+          eventForm={eventForm}
+          onFieldChange={updateField}
+          onSubmit={handleAddEvent}
+          onCancel={handleCancel}
+          errors={formErrors}
+        />
+      )}
       <EventCards events={events} />
       <ActivitiesTimeline />
     </main>
   );
 }
 
-function AdminEventForm({ eventForm, onFieldChange, onSubmit, onCancel }) {
+function AdminEventForm({ eventForm, onFieldChange, onSubmit, onCancel, errors }) {
   return (
     <div className="add-event-form">
       <h3>Create New Event</h3>
-      <form onSubmit={onSubmit}>
+      <form onSubmit={onSubmit} noValidate>
         <div className="form-row">
-          <TextField label="Event Title" placeholder="e.g., Team Meeting" value={eventForm.title} onChange={(value) => onFieldChange('title', value)} required />
-          <TextField type="date" label="Date" value={eventForm.date} onChange={(value) => onFieldChange('date', value)} required />
+          <TextField label="Event Title" placeholder="e.g., Team Meeting" value={eventForm.title} onChange={(value) => onFieldChange('title', value)} required error={errors.title} />
+          <TextField type="date" label="Date" value={eventForm.date} onChange={(value) => onFieldChange('date', value)} required error={errors.date} />
         </div>
         <div className="form-row">
-          <TextField type="time" label="Time" value={eventForm.time} onChange={(value) => onFieldChange('time', value)} required />
+          <TextField type="time" label="Time" value={eventForm.time} onChange={(value) => onFieldChange('time', value)} required error={errors.time} />
           <TextField type="number" label="Duration (minutes)" placeholder="60" value={eventForm.duration} onChange={(value) => onFieldChange('duration', value)} />
         </div>
         <TextField label="Participants" placeholder="Name1, Name2, Name3..." value={eventForm.participants} onChange={(value) => onFieldChange('participants', value)} />
@@ -77,15 +92,6 @@ function AdminEventForm({ eventForm, onFieldChange, onSubmit, onCancel }) {
           <button type="button" className="btn-light" onClick={onCancel}>Cancel</button>
         </div>
       </form>
-    </div>
-  );
-}
-
-function TextField({ label, value, onChange, type = 'text', placeholder = '', required = false }) {
-  return (
-    <div className="form-group">
-      <label>{label}</label>
-      <input type={type} placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)} required={required} />
     </div>
   );
 }

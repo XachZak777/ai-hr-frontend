@@ -1,72 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import './FindJobsPage.style.css';
 import { DashboardSection, PageTitle } from '../../components/CommonBlocks';
+import { allJobs } from '../../data/jobs';
 import { getAppliedJobs } from '../../utils/applications';
 import { notify } from '../../utils/notifications';
 import { saveJob } from '../../utils/savedJobs';
-
-export const allJobs = [
-  {
-    id: 1,
-    title: 'Senior Frontend Developer',
-    company: 'Tech Armenia',
-    location: 'Yerevan',
-    experience: 'Senior',
-    salary: '$50k-$80k',
-    matchScore: 95,
-    description: 'Tech Armenia is building hiring and workforce tools for fast-growing regional companies. In this Senior Frontend Developer role, you will lead the React UI architecture, mentor engineers, build reusable design-system components, improve dashboard performance, and partner closely with product and UX teams to ship polished employer and candidate workflows.',
-  },
-  {
-    id: 2,
-    title: 'React Developer',
-    company: 'Innovation Hub',
-    location: 'Yerevan',
-    experience: 'Mid',
-    salary: '$45k-$70k',
-    matchScore: 92,
-    description: 'Innovation Hub creates digital products for startups and enterprise teams across Armenia. As a React Developer, you will build responsive web applications, connect interfaces to APIs, maintain clean component patterns, write reliable client-side logic, and collaborate with designers to turn product ideas into stable production features.',
-  },
-  {
-    id: 3,
-    title: 'Full Stack Developer',
-    company: 'Krisp',
-    location: 'Yerevan',
-    experience: 'Mid',
-    salary: '$55k-$85k',
-    matchScore: 89,
-    description: 'Krisp develops AI-powered communication technology used by distributed teams. This Full Stack Developer position focuses on shipping end-to-end product features, building scalable backend services, improving frontend experiences, integrating data flows, and working with engineering peers to keep systems reliable, observable, and easy to maintain.',
-  },
-  {
-    id: 4,
-    title: 'Junior Developer',
-    company: 'ArmSoft',
-    location: 'Yerevan',
-    experience: 'Junior',
-    salary: '$30k-$45k',
-    matchScore: 78,
-    description: 'ArmSoft builds business software for Armenian companies in finance, accounting, and operations. As a Junior Developer, you will support feature development, fix product bugs, learn production engineering practices, participate in code reviews, and grow under senior mentorship while contributing to real customer-facing software.',
-  },
-  {
-    id: 5,
-    title: 'Backend Developer',
-    company: 'Tech Armenia',
-    location: 'Remote',
-    experience: 'Mid',
-    salary: '$48k-$72k',
-    matchScore: 85,
-    description: 'Tech Armenia is expanding its remote engineering team for AI-assisted hiring products. The Backend Developer will design secure APIs, optimize database models, build matching and notification services, improve authentication flows, and keep platform infrastructure stable as employers and job seekers use the system at scale.',
-  },
-  {
-    id: 6,
-    title: 'UI/UX Designer',
-    company: 'Design Studio',
-    location: 'Yerevan',
-    experience: 'Junior',
-    salary: '$35k-$50k',
-    matchScore: 70,
-    description: 'Design Studio partners with SaaS and HR technology companies to create clear, human-centered interfaces. In this UI/UX Designer role, you will research user needs, design candidate and recruiter journeys, create Figma prototypes, prepare handoff specs, and help make complex hiring workflows feel simple and trustworthy.',
-  },
-];
 
 const locations = ['Yerevan', 'Remote'];
 const experiences = ['Junior', 'Mid', 'Senior'];

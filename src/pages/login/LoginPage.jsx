@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Logo from '../../components/Logo';
+import './LoginPage.style.css';
 import { notify } from '../../utils/notifications';
+import { navigateAfterLogin } from '../../utils/navigation';
 import { passwordHelpText, validateEmail, validatePassword, validateUserRole } from '../../utils/validation';
 
 export default function LoginPage({ onLogin }) {
@@ -22,6 +24,7 @@ export default function LoginPage({ onLogin }) {
 
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
+
     onLogin(userRole);
     navigateAfterLogin(userRole, navigate);
   };
@@ -29,7 +32,11 @@ export default function LoginPage({ onLogin }) {
   return (
     <main className="page login-page">
       <div className="login-card">
-        <LoginHeader />
+        <div className="logo-center wide">
+          <Logo />
+        </div>
+        <h2>Welcome Back</h2>
+        <p className="muted">Sign in to HireAI Armenia to continue</p>
         <LoginForm
           email={email}
           password={password}
@@ -50,19 +57,11 @@ export default function LoginPage({ onLogin }) {
   );
 }
 
-function LoginHeader() {
-  return (
-    <>
-      <div className="logo-center wide">
-        <Logo />
-      </div>
-      <h2>Welcome Back</h2>
-      <p className="muted">Sign in to HireAI Armenia to continue</p>
-    </>
-  );
-}
-
-function LoginForm({ email, password, userRole, errors, onEmailChange, onPasswordChange, onRoleChange, onSubmit, showRecovery, onToggleRecovery }) {
+function LoginForm({
+  email, password, userRole, errors,
+  onEmailChange, onPasswordChange, onRoleChange,
+  onSubmit, showRecovery, onToggleRecovery,
+}) {
   const [recoveryEmail, setRecoveryEmail] = useState('');
 
   const handleRecovery = () => {
@@ -70,7 +69,6 @@ function LoginForm({ email, password, userRole, errors, onEmailChange, onPasswor
       notify('Enter a valid email to recover your password.', 'error');
       return;
     }
-
     notify(`Password recovery instructions sent to ${recoveryEmail}.`, 'success');
     setRecoveryEmail('');
     onToggleRecovery();
@@ -79,11 +77,23 @@ function LoginForm({ email, password, userRole, errors, onEmailChange, onPasswor
   return (
     <form onSubmit={onSubmit} noValidate>
       <div className="form-group">
-        <input type="email" placeholder="Email Address" value={email} onChange={(e) => onEmailChange(e.target.value)} className={errors.email ? 'input-error' : ''} />
+        <input
+          type="email"
+          placeholder="Email Address"
+          value={email}
+          onChange={(e) => onEmailChange(e.target.value)}
+          className={errors.email ? 'input-error' : ''}
+        />
         {errors.email && <span className="error-text">{errors.email}</span>}
       </div>
       <div className="form-group">
-        <input type="password" placeholder="Password" value={password} onChange={(e) => onPasswordChange(e.target.value)} className={errors.password ? 'input-error' : ''} />
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => onPasswordChange(e.target.value)}
+          className={errors.password ? 'input-error' : ''}
+        />
         {errors.password && <span className="error-text">{errors.password}</span>}
       </div>
       <div className="form-group">
@@ -102,7 +112,12 @@ function LoginForm({ email, password, userRole, errors, onEmailChange, onPasswor
       </div>
       {showRecovery && (
         <div className="recovery-panel">
-          <input type="email" placeholder="Recovery email" value={recoveryEmail} onChange={(e) => setRecoveryEmail(e.target.value)} />
+          <input
+            type="email"
+            placeholder="Recovery email"
+            value={recoveryEmail}
+            onChange={(e) => setRecoveryEmail(e.target.value)}
+          />
           <button type="button" className="btn-light small" onClick={handleRecovery}>Send Reset Link</button>
         </div>
       )}
@@ -125,14 +140,4 @@ function RoleButton({ value, selected, onSelect, title, subtitle }) {
       </span>
     </button>
   );
-}
-
-function navigateAfterLogin(userRole, navigate) {
-  if (userRole === 'admin') {
-    navigate('/admin-dashboard');
-  } else if (userRole === 'employer') {
-    navigate('/employer-dashboard');
-  } else {
-    navigate('/employee-dashboard');
-  }
 }

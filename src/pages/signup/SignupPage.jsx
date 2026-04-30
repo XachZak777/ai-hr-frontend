@@ -42,21 +42,14 @@ export default function SignupPage() {
     }));
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
     if (!validateForm()) return;
 
     setIsSubmitting(true);
-
-    try {
-      setTimeout(() => {
-        setIsSubmitting(false);
-        navigate('/login');
-      }, 1000);
-    } catch (error) {
-      setErrors({ general: 'An error occurred. Please try again.' });
-      setIsSubmitting(false);
-    }
+    setTimeout(() => {
+      navigate('/login');
+    }, 1000);
   };
 
   return (

@@ -4,7 +4,7 @@ import { DashboardSection, PageTitle, Tabs } from '../../components/CommonBlocks
 import { getAppliedJobs, removeAppliedJob } from '../../utils/applications';
 import { notify } from '../../utils/notifications';
 import { getSavedJobs, removeSavedJob } from '../../utils/savedJobs';
-import { allJobs } from '../find-jobs/FindJobsPage';
+import { allJobs } from '../../data/jobs';
 
 export default function MyJobsPage() {
   const navigate = useNavigate();

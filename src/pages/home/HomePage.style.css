@@ -1,0 +1,30 @@
+/* HomePage — landing page specific styles */
+
+.home .hero h1 {
+  font-size: 48px;
+  line-height: 1.15;
+  margin-bottom: 16px;
+}
+
+.home .hero .muted.big {
+  max-width: 580px;
+  margin: 0 auto 8px;
+  font-size: 18px;
+  color: var(--gray-600);
+}
+
+.home .section-block h2,
+.home .testimonial-section h2 {
+  margin-bottom: 24px;
+}
+
+.home .grid-3,
+.home .grid-4 {
+  margin-top: 24px;
+  text-align: left;
+}
+
+.home .card {
+  background: var(--beige-50);
+  border: 1px solid var(--beige-200);
+}

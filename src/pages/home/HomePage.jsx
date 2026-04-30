@@ -1,7 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Logo from '../../components/Logo';
+import ThemeToggle from '../../components/ui/ThemeToggle';
+import './HomePage.style.css';
 import { notify } from '../../utils/notifications';
+import { navigateAfterLogin } from '../../utils/navigation';
+import { validateEmail } from '../../utils/validation';
 import { getUserProfile, saveUserProfile } from '../../utils/profile';
 
 const features = [
@@ -18,17 +22,6 @@ const steps = [
   ['02 AI Matching', 'Our AI analyzes candidates and finds the best matches for your needs.'],
   ['03 Review Shortlist', 'Review a curated, diverse shortlist of qualified candidates.'],
   ['04 Make Fair Decisions', 'Interview, evaluate, and hire with complete transparency and fairness.'],
-];
-
-const results = [
-  ['45%', 'Faster hiring process on average'],
-  ['89%', 'Match accuracy with candidates'],
-  ['156', 'Companies using HireAI'],
-];
-
-const testimonials = [
-  ['"HireAI transformed our hiring process. We found amazing talent we would have missed before."', '— Armen S., CEO at Tech Armenia'],
-  ['"The platform is intuitive and fair. We\'re building a truly diverse team now."', '— Gayane M., HR Manager at Innovation Hub'],
 ];
 
 const footerGroups = [
@@ -66,29 +59,17 @@ export default function HomePage({ isLoggedIn = false, onLogin, theme = 'light',
   const [isSignupModalClosing, setIsSignupModalClosing] = useState(false);
 
   const handleScrollTo = (selector) => {
-    const element = document.querySelector(selector);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    document.querySelector(selector)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   const handleFooterLink = (action) => {
-    if (action === 'signup') {
-      openSignupModal();
-      return;
-    }
-    if (action.startsWith('alert:')) {
-      notify(action.replace('alert:', ''));
-      return;
-    }
+    if (action === 'signup') { openSignupModal(); return; }
+    if (action.startsWith('alert:')) { notify(action.replace('alert:', '')); return; }
     handleScrollTo(action);
   };
 
   const handleModalLogin = ({ role, email }) => {
-    saveSignedInProfile(role, {
-      email,
-      name: displayNameFromEmail(email),
-    });
+    saveSignedInProfile(role, { email, name: displayNameFromEmail(email) });
     onLogin?.(role);
     closeLoginModal();
     notify('Signed in successfully.', 'success');
@@ -103,44 +84,53 @@ export default function HomePage({ isLoggedIn = false, onLogin, theme = 'light',
     navigateAfterLogin(role, navigate);
   };
 
-  const openLoginModal = () => {
-    setIsLoginModalClosing(false);
-    setShowLoginModal(true);
-  };
-
+  const openLoginModal = () => { setIsLoginModalClosing(false); setShowLoginModal(true); };
   const closeLoginModal = () => {
     setIsLoginModalClosing(true);
-    window.setTimeout(() => {
-      setShowLoginModal(false);
-      setIsLoginModalClosing(false);
-    }, 260);
+    setTimeout(() => { setShowLoginModal(false); setIsLoginModalClosing(false); }, 260);
   };
 
-  const openSignupModal = () => {
-    setIsSignupModalClosing(false);
-    setShowSignupModal(true);
-  };
-
+  const openSignupModal = () => { setIsSignupModalClosing(false); setShowSignupModal(true); };
   const closeSignupModal = () => {
     setIsSignupModalClosing(true);
-    window.setTimeout(() => {
-      setShowSignupModal(false);
-      setIsSignupModalClosing(false);
-    }, 260);
+    setTimeout(() => { setShowSignupModal(false); setIsSignupModalClosing(false); }, 260);
   };
 
   return (
     <main className="page home">
-      {!isLoggedIn && <HomeHeader navigate={navigate} onScrollTo={handleScrollTo} onOpenLogin={openLoginModal} onOpenSignup={openSignupModal} theme={theme} onThemeChange={onThemeChange} />}
-      <Hero navigate={navigate} onOpenSignup={openSignupModal} onOpenLogin={openLoginModal} />
-      <CardGridSection className="why-choose" title="Why Choose HireAI Armenia?" subtitle="Our platform combines cutting-edge AI technology with local expertise to revolutionize hiring in Armenia." columns="grid-3" items={features} />
-      <CardGridSection className="how-it-works" title="How It Works" subtitle="Get started in four simple steps" columns="grid-4" items={steps} />
-      <ResultsSection />
-      <TestimonialsSection />
+      {!isLoggedIn && (
+        <HomeHeader
+          navigate={navigate}
+          onScrollTo={handleScrollTo}
+          onOpenLogin={openLoginModal}
+          onOpenSignup={openSignupModal}
+          theme={theme}
+          onThemeChange={onThemeChange}
+        />
+      )}
+      <Hero onOpenSignup={openSignupModal} onOpenLogin={openLoginModal} />
+      <CardGridSection
+        className="why-choose"
+        title="Why Choose HireAI Armenia?"
+        subtitle="Our platform combines cutting-edge AI technology with local expertise to revolutionize hiring in Armenia."
+        columns="grid-3"
+        items={features}
+      />
+      <CardGridSection
+        className="how-it-works"
+        title="How It Works"
+        subtitle="Get started in four simple steps"
+        columns="grid-4"
+        items={steps}
+      />
       <CtaSection onOpenSignup={openSignupModal} />
       <HomeFooter onFooterLink={handleFooterLink} />
-      {showLoginModal && <LoginModal isClosing={isLoginModalClosing} onClose={closeLoginModal} onLogin={handleModalLogin} />}
-      {showSignupModal && <SignupModal isClosing={isSignupModalClosing} onClose={closeSignupModal} onSignup={handleModalSignup} />}
+      {showLoginModal && (
+        <LoginModal isClosing={isLoginModalClosing} onClose={closeLoginModal} onLogin={handleModalLogin} />
+      )}
+      {showSignupModal && (
+        <SignupModal isClosing={isSignupModalClosing} onClose={closeSignupModal} onSignup={handleModalSignup} />
+      )}
     </main>
   );
 }
@@ -172,17 +162,7 @@ function HomeHeader({ navigate, onScrollTo, onOpenLogin, onOpenSignup, theme, on
   );
 }
 
-function ThemeToggle({ theme, onThemeChange }) {
-  const nextTheme = theme === 'light' ? 'dark' : 'light';
-
-  return (
-    <button className="theme-toggle" onClick={() => onThemeChange?.(nextTheme)} aria-label="Change theme">
-      {theme === 'light' ? 'Dark' : 'Light'}
-    </button>
-  );
-}
-
-function Hero({ navigate, onOpenSignup, onOpenLogin }) {
+function Hero({ onOpenSignup, onOpenLogin }) {
   return (
     <section className="hero">
       <div>
@@ -208,38 +188,6 @@ function CardGridSection({ className, title, subtitle, columns, items }) {
           <article key={itemTitle} className="card">
             <h4>{itemTitle}</h4>
             <p className="muted">{description}</p>
-          </article>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function ResultsSection() {
-  return (
-    <section className="section-block results">
-      <h2>Real Results from Armenian Companies</h2>
-      <div className="grid-3">
-        {results.map(([value, label]) => (
-          <div key={label} className="stat-box">
-            <h3>{value}</h3>
-            <p className="muted">{label}</p>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function TestimonialsSection() {
-  return (
-    <section className="testimonial-section">
-      <h2>What Our Users Say</h2>
-      <div className="grid-2">
-        {testimonials.map(([quote, author]) => (
-          <article key={author} className="testimonial-card">
-            <p className="quote">{quote}</p>
-            <p className="author">{author}</p>
           </article>
         ))}
       </div>
@@ -285,23 +233,43 @@ function HomeFooter({ onFooterLink }) {
   );
 }
 
+function RoleChoice({ value, label, role, setRole }) {
+  return (
+    <button
+      type="button"
+      className={`modal-role ${role === value ? 'active' : ''}`}
+      onClick={() => setRole(value)}
+    >
+      {label}
+    </button>
+  );
+}
+
 function LoginModal({ isClosing, onClose, onLogin }) {
   const [role, setRole] = useState('employee');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [errors, setErrors] = useState({});
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!email.trim() || !password.trim()) {
-      notify('Enter your email and password to continue.', 'error');
-      return;
-    }
+    const nextErrors = {};
+    if (!validateEmail(email)) nextErrors.email = 'Enter a valid email address';
+    if (!password.trim()) nextErrors.password = 'Password is required';
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
     onLogin({ role, email });
   };
 
   return (
     <div className={`login-modal-backdrop ${isClosing ? 'closing' : ''}`} onClick={onClose}>
-      <section className="login-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Sign in">
+      <section
+        className="login-modal"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Sign in"
+      >
         <button className="modal-close" onClick={onClose} aria-label="Close sign in modal">×</button>
         <div className="modal-brand">
           <Logo compact />
@@ -314,20 +282,30 @@ function LoginModal({ isClosing, onClose, onLogin }) {
             <RoleChoice value="employer" label="Employer" role={role} setRole={setRole} />
             <RoleChoice value="admin" label="Admin" role={role} setRole={setRole} />
           </div>
-          <input type="email" placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)} />
-          <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <div className="form-group">
+            <input
+              type="email"
+              placeholder="Email address"
+              value={email}
+              onChange={(e) => { setEmail(e.target.value); if (errors.email) setErrors((v) => ({ ...v, email: '' })); }}
+              className={errors.email ? 'input-error' : ''}
+            />
+            {errors.email && <span className="error-text">{errors.email}</span>}
+          </div>
+          <div className="form-group">
+            <input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => { setPassword(e.target.value); if (errors.password) setErrors((v) => ({ ...v, password: '' })); }}
+              className={errors.password ? 'input-error' : ''}
+            />
+            {errors.password && <span className="error-text">{errors.password}</span>}
+          </div>
           <button className="btn-dark full" type="submit">Sign In</button>
         </form>
       </section>
     </div>
-  );
-}
-
-function RoleChoice({ value, label, role, setRole }) {
-  return (
-    <button type="button" className={`modal-role ${role === value ? 'active' : ''}`} onClick={() => setRole(value)}>
-      {label}
-    </button>
   );
 }
 
@@ -339,17 +317,22 @@ function SignupModal({ isClosing, onClose, onSignup }) {
     role: 'employee',
     password: '',
   });
+  const [errors, setErrors] = useState({});
 
   const updateField = (field, value) => {
     setFormData((current) => ({ ...current, [field]: value }));
+    if (errors[field]) setErrors((e) => ({ ...e, [field]: '' }));
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!formData.firstName.trim() || !formData.lastName.trim() || !formData.email.trim() || !formData.password.trim()) {
-      notify('Fill in all fields to create your account.', 'error');
-      return;
-    }
+    const nextErrors = {};
+    if (!formData.firstName.trim()) nextErrors.firstName = 'First name is required';
+    if (!formData.lastName.trim()) nextErrors.lastName = 'Last name is required';
+    if (!validateEmail(formData.email)) nextErrors.email = 'Enter a valid email address';
+    if (!formData.password.trim()) nextErrors.password = 'Password is required';
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
     onSignup({
       role: formData.role,
       name: `${formData.firstName.trim()} ${formData.lastName.trim()}`,
@@ -359,7 +342,13 @@ function SignupModal({ isClosing, onClose, onSignup }) {
 
   return (
     <div className={`login-modal-backdrop ${isClosing ? 'closing' : ''}`} onClick={onClose}>
-      <section className="login-modal signup-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Get started">
+      <section
+        className="login-modal signup-modal"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Get started"
+      >
         <button className="modal-close" onClick={onClose} aria-label="Close get started modal">×</button>
         <div className="modal-brand">
           <Logo compact />
@@ -374,11 +363,23 @@ function SignupModal({ isClosing, onClose, onSignup }) {
             <RoleChoice value="admin" label="Admin" role={formData.role} setRole={(value) => updateField('role', value)} />
           </div>
           <div className="grid-2">
-            <input placeholder="First name" value={formData.firstName} onChange={(e) => updateField('firstName', e.target.value)} />
-            <input placeholder="Last name" value={formData.lastName} onChange={(e) => updateField('lastName', e.target.value)} />
+            <div className="form-group">
+              <input placeholder="First name" value={formData.firstName} onChange={(e) => updateField('firstName', e.target.value)} className={errors.firstName ? 'input-error' : ''} />
+              {errors.firstName && <span className="error-text">{errors.firstName}</span>}
+            </div>
+            <div className="form-group">
+              <input placeholder="Last name" value={formData.lastName} onChange={(e) => updateField('lastName', e.target.value)} className={errors.lastName ? 'input-error' : ''} />
+              {errors.lastName && <span className="error-text">{errors.lastName}</span>}
+            </div>
           </div>
-          <input type="email" placeholder="Email address" value={formData.email} onChange={(e) => updateField('email', e.target.value)} />
-          <input type="password" placeholder="Create password" value={formData.password} onChange={(e) => updateField('password', e.target.value)} />
+          <div className="form-group">
+            <input type="email" placeholder="Email address" value={formData.email} onChange={(e) => updateField('email', e.target.value)} className={errors.email ? 'input-error' : ''} />
+            {errors.email && <span className="error-text">{errors.email}</span>}
+          </div>
+          <div className="form-group">
+            <input type="password" placeholder="Create password" value={formData.password} onChange={(e) => updateField('password', e.target.value)} className={errors.password ? 'input-error' : ''} />
+            {errors.password && <span className="error-text">{errors.password}</span>}
+          </div>
           <button className="btn-dark full" type="submit">Create Account</button>
         </form>
       </section>
@@ -386,22 +387,9 @@ function SignupModal({ isClosing, onClose, onSignup }) {
   );
 }
 
-function navigateAfterLogin(role, navigate) {
-  if (role === 'admin') {
-    navigate('/admin-dashboard');
-  } else if (role === 'employer') {
-    navigate('/employer-dashboard');
-  } else {
-    navigate('/employee-dashboard');
-  }
-}
-
 function saveSignedInProfile(role, updates) {
   const currentProfile = getUserProfile(role);
-  saveUserProfile(role, {
-    ...currentProfile,
-    ...updates,
-  });
+  saveUserProfile(role, { ...currentProfile, ...updates });
 }
 
 function displayNameFromEmail(email) {
