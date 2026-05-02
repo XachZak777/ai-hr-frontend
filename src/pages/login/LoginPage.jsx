@@ -4,29 +4,40 @@ import Logo from '../../components/Logo';
 import './LoginPage.style.css';
 import { notify } from '../../utils/notifications';
 import { navigateAfterLogin } from '../../utils/navigation';
-import { passwordHelpText, validateEmail, validatePassword, validateUserRole } from '../../utils/validation';
+import { validateEmail } from '../../utils/validation';
+import { login } from '../../api/auth';
+import { FRONTEND_ROLE, parseAuthResponse, setAuthUser } from '../../utils/authState';
 
 export default function LoginPage({ onLogin }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [userRole, setUserRole] = useState('');
   const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showRecovery, setShowRecovery] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const nextErrors = {};
 
     if (!validateEmail(email)) nextErrors.email = 'Please enter a valid email address';
-    if (!validatePassword(password)) nextErrors.password = passwordHelpText;
-    if (!validateUserRole(userRole)) nextErrors.userRole = 'Please select your role';
+    if (!password.trim()) nextErrors.password = 'Password is required';
 
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
-    onLogin(userRole);
-    navigateAfterLogin(userRole, navigate);
+    setIsSubmitting(true);
+    try {
+      const data = await login({ email, password });
+      setAuthUser(parseAuthResponse(data));
+      const role = FRONTEND_ROLE[data.role];
+      onLogin(role);
+      navigateAfterLogin(role, navigate);
+    } catch (err) {
+      setErrors({ general: err.message ?? 'Sign in failed. Please check your credentials.' });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -37,17 +48,17 @@ export default function LoginPage({ onLogin }) {
         </div>
         <h2>Welcome Back</h2>
         <p className="muted">Sign in to HireAI Armenia to continue</p>
+        {errors.general && <div className="error-message">{errors.general}</div>}
         <LoginForm
           email={email}
           password={password}
-          userRole={userRole}
           errors={errors}
+          isSubmitting={isSubmitting}
           onEmailChange={setEmail}
           onPasswordChange={setPassword}
-          onRoleChange={setUserRole}
           onSubmit={handleSubmit}
           showRecovery={showRecovery}
-          onToggleRecovery={() => setShowRecovery((current) => !current)}
+          onToggleRecovery={() => setShowRecovery((prev) => !prev)}
         />
         <div className="signup-redirect">
           <p>Don't have an account? <a href="/signup" className="link">Create one here</a></p>
@@ -58,8 +69,8 @@ export default function LoginPage({ onLogin }) {
 }
 
 function LoginForm({
-  email, password, userRole, errors,
-  onEmailChange, onPasswordChange, onRoleChange,
+  email, password, errors, isSubmitting,
+  onEmailChange, onPasswordChange,
   onSubmit, showRecovery, onToggleRecovery,
 }) {
   const [recoveryEmail, setRecoveryEmail] = useState('');
@@ -96,14 +107,6 @@ function LoginForm({
         />
         {errors.password && <span className="error-text">{errors.password}</span>}
       </div>
-      <div className="form-group">
-        <div className={`role-picker ${errors.userRole ? 'input-error' : ''}`}>
-          <RoleButton value="employee" selected={userRole === 'employee'} onSelect={onRoleChange} title="Job Seeker" subtitle="Find jobs, apply, and track offers" />
-          <RoleButton value="employer" selected={userRole === 'employer'} onSelect={onRoleChange} title="Employer" subtitle="Post roles and review candidates" />
-          <RoleButton value="admin" selected={userRole === 'admin'} onSelect={onRoleChange} title="Admin" subtitle="Manage platform operations" />
-        </div>
-        {errors.userRole && <span className="error-text">{errors.userRole}</span>}
-      </div>
       <div className="remember-forgot">
         <label className="remember">
           <input type="checkbox" /> Remember me
@@ -121,23 +124,9 @@ function LoginForm({
           <button type="button" className="btn-light small" onClick={handleRecovery}>Send Reset Link</button>
         </div>
       )}
-      <button type="submit" className="btn-dark full">Sign In</button>
+      <button type="submit" className="btn-dark full" disabled={isSubmitting}>
+        {isSubmitting ? 'Signing In...' : 'Sign In'}
+      </button>
     </form>
-  );
-}
-
-function RoleButton({ value, selected, onSelect, title, subtitle }) {
-  return (
-    <button
-      type="button"
-      className={`role-button ${value === 'employee' ? 'job-seeker-role' : ''} ${selected ? 'selected' : ''}`}
-      onClick={() => onSelect(value)}
-    >
-      <span className="role-icon">{value === 'employee' ? '★' : value === 'employer' ? '◆' : '●'}</span>
-      <span>
-        <strong>{title}</strong>
-        <small>{subtitle}</small>
-      </span>
-    </button>
   );
 }

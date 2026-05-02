@@ -1,11 +1,19 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DashboardSection, EventCards, PageTitle } from '../../components/CommonBlocks';
-import { notify } from '../../utils/notifications';
-import TextField from '../../components/ui/TextField';
+import { listMyInterviews } from '../../api/interviews';
 
-const initialEvents = [];
-
-const emptyForm = { title: '', company: '', position: '', date: '', time: '', duration: '45', location: '' };
+function adaptInterview(interview) {
+  const scheduledAt = interview.scheduledAt ? new Date(interview.scheduledAt) : null;
+  const status = interview.status?.toLowerCase() ?? 'scheduled';
+  return {
+    title: `Interview #${interview.id}`,
+    time: scheduledAt ? scheduledAt.toLocaleString() : 'Time not set',
+    metaA: `Job #${interview.jobId ?? '—'}`,
+    metaB: '',
+    status,
+    primary: status === 'completed' ? 'View Results' : 'Join Interview',
+  };
+}
 
 const checklistItems = [
   ['Research company background and culture', true],
@@ -23,61 +31,30 @@ const tips = [
 ];
 
 export default function EmployeeSchedulePage() {
-  const [events, setEvents] = useState(initialEvents);
-  const [showAddEvent, setShowAddEvent] = useState(false);
-  const [eventForm, setEventForm] = useState(emptyForm);
-  const [formErrors, setFormErrors] = useState({});
-  const upcomingEvents = events.filter((event) => event.status !== 'rejected');
+  const [events, setEvents] = useState([]);
+  const upcomingEvents = events.filter((e) => e.status !== 'rejected' && e.status !== 'cancelled' && e.status !== 'completed');
 
-  const updateField = (field, value) => setEventForm((current) => ({ ...current, [field]: value }));
-
-  const handleAddEvent = (e) => {
-    e.preventDefault();
-    const nextErrors = {};
-    if (!eventForm.title.trim()) nextErrors.title = 'Interview title is required';
-    if (!eventForm.date) nextErrors.date = 'Date is required';
-    if (!eventForm.time) nextErrors.time = 'Time is required';
-    setFormErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0) return;
-
-    const newEvent = {
-      title: eventForm.title,
-      time: `${eventForm.date} · ${eventForm.time} (${eventForm.duration} mins)`,
-      metaA: `${eventForm.company || 'Company'} - ${eventForm.position || 'Position'}`,
-      metaB: eventForm.location || 'Virtual Meeting',
-      status: 'scheduled',
-      primary: 'Join Meeting'
-    };
-    setEvents([...events, newEvent]);
-    setEventForm(emptyForm);
-    setFormErrors({});
-    setShowAddEvent(false);
-    notify('Interview added to your schedule.', 'success');
-  };
-
-  const handleCancel = () => {
-    setShowAddEvent(false);
-    setFormErrors({});
-  };
+  useEffect(() => {
+    listMyInterviews({ size: 50 })
+      .then((page) => setEvents((page.content ?? []).map(adaptInterview)))
+      .catch(() => {});
+  }, []);
 
   return (
     <main className="page dashboard">
       <PageTitle
         title="My Interview Schedule"
-        subtitle="View your upcoming interviews and assessments"
-        actions={<button className="btn-dark" onClick={() => setShowAddEvent(!showAddEvent)}>{showAddEvent ? 'Cancel' : '+ Add Event'}</button>}
+        subtitle="Interviews are assigned by recruiters. You can join scheduled calls below."
       />
       <InterviewStats events={events} upcomingCount={upcomingEvents.length} />
-      {showAddEvent && (
-        <EmployeeEventForm
-          eventForm={eventForm}
-          onFieldChange={updateField}
-          onSubmit={handleAddEvent}
-          onCancel={handleCancel}
-          errors={formErrors}
-        />
+      {events.length === 0 ? (
+        <div className="empty-state">
+          <h4>No interviews scheduled</h4>
+          <p className="muted">When a recruiter schedules an interview with you, it will appear here.</p>
+        </div>
+      ) : (
+        <EventCards events={events} readOnly />
       )}
-      <EventCards events={events} />
       <ChecklistSection />
       <TipsSection />
     </main>
@@ -86,9 +63,9 @@ export default function EmployeeSchedulePage() {
 
 function InterviewStats({ events, upcomingCount }) {
   const stats = [
-    ['Upcoming interviews', upcomingCount],
-    ['Confirmed', events.filter((event) => event.status === 'confirmed').length],
-    ['Pending confirmation', events.filter((event) => event.status === 'pending' || event.status === 'scheduled').length],
+    ['Upcoming', upcomingCount],
+    ['Confirmed', events.filter((e) => e.status === 'confirmed').length],
+    ['Completed', events.filter((e) => e.status === 'completed').length],
   ];
 
   return (
@@ -99,33 +76,6 @@ function InterviewStats({ events, upcomingCount }) {
           <p className="muted">{label}</p>
         </div>
       ))}
-    </div>
-  );
-}
-
-function EmployeeEventForm({ eventForm, onFieldChange, onSubmit, onCancel, errors }) {
-  return (
-    <div className="add-event-form">
-      <h3>Add Interview to Schedule</h3>
-      <form onSubmit={onSubmit} noValidate>
-        <div className="form-row">
-          <TextField label="Interview Title" placeholder="e.g., Interview - Senior Developer" value={eventForm.title} onChange={(value) => onFieldChange('title', value)} required error={errors.title} />
-        </div>
-        <div className="form-row">
-          <TextField label="Company Name" placeholder="e.g., Tech Armenia" value={eventForm.company} onChange={(value) => onFieldChange('company', value)} />
-          <TextField label="Position" placeholder="e.g., Frontend Developer" value={eventForm.position} onChange={(value) => onFieldChange('position', value)} />
-        </div>
-        <div className="form-row">
-          <TextField type="date" label="Date" value={eventForm.date} onChange={(value) => onFieldChange('date', value)} required error={errors.date} />
-          <TextField type="time" label="Time" value={eventForm.time} onChange={(value) => onFieldChange('time', value)} required error={errors.time} />
-          <TextField type="number" label="Duration (minutes)" placeholder="45" value={eventForm.duration} onChange={(value) => onFieldChange('duration', value)} />
-        </div>
-        <TextField label="Location / Meeting Details" placeholder="Virtual Meeting, Office address, or meeting link" value={eventForm.location} onChange={(value) => onFieldChange('location', value)} />
-        <div className="form-actions">
-          <button type="submit" className="btn-dark">Add to Schedule</button>
-          <button type="button" className="btn-light" onClick={onCancel}>Cancel</button>
-        </div>
-      </form>
     </div>
   );
 }

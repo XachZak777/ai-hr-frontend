@@ -2,42 +2,103 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './FindJobsPage.style.css';
 import { DashboardSection, PageTitle } from '../../components/CommonBlocks';
-import { allJobs } from '../../data/jobs';
-import { getAppliedJobs } from '../../utils/applications';
+import { listJobs, listMyApplications, listSavedJobs, saveJob as apiSaveJob, unsaveJob } from '../../api/jobs';
 import { notify } from '../../utils/notifications';
-import { saveJob } from '../../utils/savedJobs';
 
-const locations = ['Yerevan', 'Remote'];
-const experiences = ['Junior', 'Mid', 'Senior'];
+const EXPERIENCE_LABEL = { ENTRY: 'Entry', MID: 'Mid', SENIOR: 'Senior', LEAD: 'Lead' };
+
+function experienceLevelLabel(level) {
+  return EXPERIENCE_LABEL[level] ?? 'Mid';
+}
+
+function formatSalary(min, max) {
+  if (!min && !max) return 'Negotiable';
+  const fmt = (n) => `$${Math.round(n / 1000)}k`;
+  if (min && max) return `${fmt(min)} – ${fmt(max)}`;
+  return min ? `From ${fmt(min)}` : `Up to ${fmt(max)}`;
+}
+
+function adaptJob(job) {
+  return {
+    ...job,
+    experience: experienceLevelLabel(job.experienceLevel),
+    salary: formatSalary(job.salaryMin, job.salaryMax),
+  };
+}
+
+const experiences = ['Entry', 'Mid', 'Senior', 'Lead'];
 
 const tips = [
-  ['🔍 Refine Your Search', 'Use specific keywords and filters to find jobs that match your skills'],
-  ['⭐ Complete Your Profile', 'A complete profile increases your visibility to recruiters and improves matches'],
-  ['💾 Save Your Favorites', 'Bookmark jobs to review later or set alerts for similar positions'],
-  ['📧 Get Notifications', 'Enable notifications to stay updated on new jobs matching your preferences'],
+  ['Refine Your Search', 'Use specific keywords and filters to find jobs that match your skills'],
+  ['Complete Your Profile', 'A complete profile increases your visibility to recruiters and improves matches'],
+  ['Save Your Favorites', 'Bookmark jobs to review later or set alerts for similar positions'],
+  ['Get Notifications', 'Enable notifications to stay updated on new jobs matching your preferences'],
 ];
 
 export default function FindJobsPage() {
   const navigate = useNavigate();
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [locationFilter, setLocationFilter] = useState('');
   const [experienceFilter, setExperienceFilter] = useState('all');
-  const [selectedJobId, setSelectedJobId] = useState(allJobs[0]?.id);
+  const [selectedJobId, setSelectedJobId] = useState(null);
   const [appliedJobIds, setAppliedJobIds] = useState([]);
+  const [savedJobIds, setSavedJobIds] = useState([]);
 
   useEffect(() => {
-    setAppliedJobIds(getAppliedJobs().map((application) => String(application.jobId || application.id)));
+    Promise.all([
+      listJobs({ size: 50 }),
+      listMyApplications({ size: 100 }).catch(() => ({ content: [] })),
+      listSavedJobs({ size: 100 }).catch(() => ({ content: [] })),
+    ])
+      .then(([jobsPage, appsPage, savedPage]) => {
+        const adapted = (jobsPage.content ?? []).map(adaptJob);
+        setJobs(adapted);
+        setSelectedJobId(adapted[0]?.id ?? null);
+        setAppliedJobIds((appsPage.content ?? []).map((a) => String(a.jobId)));
+        setSavedJobIds((savedPage.content ?? []).map((s) => String(s.jobId)));
+      })
+      .catch(() => notify('Failed to load jobs.', 'error'))
+      .finally(() => setLoading(false));
   }, []);
 
-  const filteredJobs = allJobs.filter((job) => {
-    const matchesSearch = job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         job.company.toLowerCase().includes(searchQuery.toLowerCase());
+  const locations = [...new Set(jobs.map((j) => j.location).filter(Boolean))];
+
+  const filteredJobs = jobs.filter((job) => {
+    const q = searchQuery.toLowerCase();
+    const matchesSearch = job.title.toLowerCase().includes(q) || (job.location ?? '').toLowerCase().includes(q);
     const matchesLocation = locationFilter === '' || job.location === locationFilter;
     const matchesExperience = experienceFilter === 'all' || job.experience === experienceFilter;
     return matchesSearch && matchesLocation && matchesExperience;
   });
 
-  const selectedJob = filteredJobs.find((job) => job.id === selectedJobId) || filteredJobs[0] || allJobs[0];
+  const selectedJob = filteredJobs.find((j) => j.id === selectedJobId) ?? filteredJobs[0];
+
+  const handleSaveJob = async (job) => {
+    const isSaved = savedJobIds.includes(String(job.id));
+    try {
+      if (isSaved) {
+        await unsaveJob(job.id);
+        setSavedJobIds((prev) => prev.filter((id) => id !== String(job.id)));
+        notify(`${job.title} removed from saved jobs.`, 'success');
+      } else {
+        await apiSaveJob(job.id);
+        setSavedJobIds((prev) => [...prev, String(job.id)]);
+        notify(`${job.title} saved to your jobs.`, 'success');
+      }
+    } catch {
+      notify('Could not update saved jobs.', 'error');
+    }
+  };
+
+  if (loading) {
+    return (
+      <main className="page dashboard">
+        <PageTitle title="Find Your Next Opportunity" subtitle="Loading available jobs..." />
+      </main>
+    );
+  }
 
   return (
     <main className="page dashboard">
@@ -46,14 +107,17 @@ export default function FindJobsPage() {
         searchQuery={searchQuery}
         locationFilter={locationFilter}
         experienceFilter={experienceFilter}
+        locations={locations}
         filteredJobs={filteredJobs}
         selectedJob={selectedJob}
         appliedJobIds={appliedJobIds}
+        savedJobIds={savedJobIds}
         onSearchChange={setSearchQuery}
         onLocationChange={setLocationFilter}
         onExperienceChange={setExperienceFilter}
         onSelectJob={setSelectedJobId}
         onApply={(job) => navigate(`/apply/${job.id}`, { state: { job } })}
+        onSaveJob={handleSaveJob}
       />
       <JobSearchTips />
     </main>
@@ -66,19 +130,31 @@ function JobSearchPanel(props) {
       <aside className="job-left-panel">
         <h3>Search Jobs</h3>
         <SearchFilters {...props} />
-        <SelectedJobDescription job={props.selectedJob} isApplied={props.appliedJobIds.includes(String(props.selectedJob?.id))} onApply={props.onApply} />
+        <SelectedJobDescription
+          job={props.selectedJob}
+          isApplied={props.appliedJobIds.includes(String(props.selectedJob?.id))}
+          onApply={props.onApply}
+        />
       </aside>
       <div className="job-search-form">
         <div className="search-summary">
           <p className="muted">{props.filteredJobs.length} jobs found</p>
         </div>
-        <JobResults jobs={props.filteredJobs} selectedJobId={props.selectedJob?.id} appliedJobIds={props.appliedJobIds} onSelectJob={props.onSelectJob} onApply={props.onApply} />
+        <JobResults
+          jobs={props.filteredJobs}
+          selectedJobId={props.selectedJob?.id}
+          appliedJobIds={props.appliedJobIds}
+          savedJobIds={props.savedJobIds}
+          onSelectJob={props.onSelectJob}
+          onApply={props.onApply}
+          onSaveJob={props.onSaveJob}
+        />
       </div>
     </div>
   );
 }
 
-function SearchFilters({ searchQuery, locationFilter, experienceFilter, onSearchChange, onLocationChange, onExperienceChange }) {
+function SearchFilters({ searchQuery, locationFilter, experienceFilter, locations, onSearchChange, onLocationChange, onExperienceChange }) {
   return (
     <div className="search-inputs">
       <input type="text" placeholder="Job title or keyword..." value={searchQuery} onChange={(e) => onSearchChange(e.target.value)} />
@@ -101,21 +177,22 @@ function SelectedJobDescription({ job, isApplied, onApply }) {
     <div className="selected-job-description">
       <div className="row-between">
         <h4>{job.title}</h4>
-        {isApplied && <span className="applied-check">✓ Applied</span>}
+        {isApplied && <span className="applied-check">Applied</span>}
       </div>
-      <p className="company">{job.company}</p>
-      <p className="muted">{job.description}</p>
       <div className="job-details stacked">
-        <span className="detail">📍 {job.location}</span>
-        <span className="detail">🎯 {job.experience}</span>
-        <span className="detail">💰 {job.salary}/year</span>
+        <span className="detail">{job.location}</span>
+        <span className="detail">{job.experience}</span>
+        <span className="detail">{job.salary}/year</span>
       </div>
-      <button className="btn-dark full" disabled={isApplied} onClick={() => onApply(job)}>{isApplied ? 'Already Applied' : 'Apply to This Job'}</button>
+      <p className="muted">{job.description}</p>
+      <button className="btn-dark full" disabled={isApplied} onClick={() => onApply(job)}>
+        {isApplied ? 'Already Applied' : 'Apply to This Job'}
+      </button>
     </div>
   );
 }
 
-function JobResults({ jobs, selectedJobId, appliedJobIds, onSelectJob, onApply }) {
+function JobResults({ jobs, selectedJobId, appliedJobIds, savedJobIds, onSelectJob, onApply, onSaveJob }) {
   if (jobs.length === 0) {
     return (
       <div className="no-results">
@@ -132,50 +209,48 @@ function JobResults({ jobs, selectedJobId, appliedJobIds, onSelectJob, onApply }
           job={job}
           isSelected={job.id === selectedJobId}
           isApplied={appliedJobIds.includes(String(job.id))}
+          isSaved={savedJobIds.includes(String(job.id))}
           onSelectJob={onSelectJob}
           onApply={onApply}
+          onSaveJob={onSaveJob}
         />
       ))}
     </div>
   );
 }
 
-function JobListingCard({ job, isSelected, isApplied, onSelectJob, onApply }) {
+function JobListingCard({ job, isSelected, isApplied, isSaved, onSelectJob, onApply, onSaveJob }) {
   return (
-    <div className={`job-listing-card ${isSelected ? 'selected' : ''} ${isApplied ? 'applied' : ''}`} onClick={() => onSelectJob(job.id)}>
+    <div
+      className={`job-listing-card ${isSelected ? 'selected' : ''} ${isApplied ? 'applied' : ''}`}
+      onClick={() => onSelectJob(job.id)}
+    >
       <div className="job-header">
         <div className="job-title-section">
           <h4>{job.title}</h4>
-          <p className="company">{job.company}</p>
         </div>
-        {isApplied && <span className="applied-checkbox" aria-label="Applied">✓</span>}
-        <span className="match-badge">
-          <span className="match-score">{job.matchScore}%</span>
-          <p className="muted small">Match</p>
-        </span>
+        {isApplied && <span className="applied-checkbox" aria-label="Applied">Applied</span>}
       </div>
       <div className="job-details">
-        <span className="detail">📍 {job.location}</span>
-        <span className="detail">🎯 {job.experience}</span>
-        <span className="detail">💰 {job.salary}/year</span>
+        <span className="detail">{job.location}</span>
+        <span className="detail">{job.experience}</span>
+        <span className="detail">{job.salary}/year</span>
       </div>
       <p className="job-description">{job.description}</p>
       <div className="job-tags">
-        <span className="tag-skill">{experienceLabel(job.experience)}</span>
+        <span className="tag-skill">{job.experience}</span>
         <span className="tag-skill">Full-time</span>
       </div>
       <div className="job-footer">
-        <button className="btn-dark" disabled={isApplied} onClick={(e) => { e.stopPropagation(); onApply(job); }}>{isApplied ? 'Applied' : 'Apply Now'}</button>
-        <button className="btn-light" onClick={(e) => { e.stopPropagation(); saveJob(job); notify(`${job.title} saved to your jobs.`, 'success'); }}>Save Job</button>
+        <button className="btn-dark" disabled={isApplied} onClick={(e) => { e.stopPropagation(); onApply(job); }}>
+          {isApplied ? 'Applied' : 'Apply Now'}
+        </button>
+        <button className="btn-light" onClick={(e) => { e.stopPropagation(); onSaveJob(job); }}>
+          {isSaved ? 'Saved' : 'Save Job'}
+        </button>
       </div>
     </div>
   );
-}
-
-function experienceLabel(experience) {
-  if (experience === 'Senior') return 'Leadership';
-  if (experience === 'Mid') return 'Growth';
-  return 'Learning';
 }
 
 function JobSearchTips() {

@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Logo from '../../components/Logo';
 import { passwordHelpText, validateEmail, validatePassword, validateUserRole } from '../../utils/validation';
+import { register } from '../../api/auth';
+import { BACKEND_ROLE, FRONTEND_ROLE, parseAuthResponse, setAuthUser } from '../../utils/authState';
+import { navigateAfterLogin } from '../../utils/navigation';
 
 const initialFormData = {
   firstName: '',
@@ -13,7 +16,7 @@ const initialFormData = {
   termsAccepted: false,
 };
 
-export default function SignupPage() {
+export default function SignupPage({ onLogin }) {
   const [formData, setFormData] = useState(initialFormData);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -38,18 +41,32 @@ export default function SignupPage() {
     const { name, value, type, checked } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: type === 'checkbox' ? checked : value,
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
 
     setIsSubmitting(true);
-    setTimeout(() => {
-      navigate('/login');
-    }, 1000);
+    try {
+      const fullName = `${formData.firstName.trim()} ${formData.lastName.trim()}`;
+      const data = await register({
+        email: formData.email,
+        fullName,
+        password: formData.password,
+        role: BACKEND_ROLE[formData.userType],
+      });
+      setAuthUser(parseAuthResponse(data));
+      const role = FRONTEND_ROLE[data.role];
+      onLogin(role);
+      navigateAfterLogin(role, navigate);
+    } catch (err) {
+      setErrors({ general: err.message ?? 'Registration failed. Please try again.' });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -127,7 +144,6 @@ function RoleSelect({ value, error, onChange }) {
         <option value="">Select your role...</option>
         <option value="employer">I am an Employer</option>
         <option value="employee">I am a Job Seeker</option>
-        <option value="admin">I am an Administrator</option>
       </select>
       {error && <span className="error-text">{error}</span>}
     </div>

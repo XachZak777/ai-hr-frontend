@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
+import { logout as apiLogout } from './api/auth';
 import NotificationCenter from './components/NotificationCenter';
 import TopNav from './components/TopNav';
 import HomePage from './pages/home/HomePage';
@@ -17,35 +18,45 @@ import MyJobsPage from './pages/my-jobs/MyJobsPage';
 import NotificationsPage from './pages/notifications/NotificationsPage';
 import PostNewJobPage from './pages/post-new-job/PostNewJobPage';
 import ProfilePage from './pages/profile/ProfilePage';
+import { clearAuthUser, getAuthUser, getFrontendRole } from './utils/authState';
+import { tokenStore } from './api/client';
+
+function initSession() {
+  if (tokenStore.getAccess() && getAuthUser()) {
+    return { loggedIn: true, role: getFrontendRole() };
+  }
+  return { loggedIn: false, role: null };
+}
 
 export default function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userRole, setUserRole] = useState(null);
-  const [theme, setTheme] = useState(() => localStorage.getItem('hireai_theme') || 'light');
+  const [isLoggedIn, setIsLoggedIn] = useState(() => initSession().loggedIn);
+  const [userRole, setUserRole] = useState(() => initSession().role);
+  const handleLogout = useCallback(async () => {
+    await apiLogout().catch(() => {});
+    clearAuthUser();
+    setIsLoggedIn(false);
+    setUserRole(null);
+  }, []);
 
   useEffect(() => {
-    document.body.dataset.theme = theme;
-    localStorage.setItem('hireai_theme', theme);
-  }, [theme]);
+    const onExpired = () => handleLogout();
+    window.addEventListener('hireai:session-expired', onExpired);
+    return () => window.removeEventListener('hireai:session-expired', onExpired);
+  }, [handleLogout]);
 
   const handleLogin = (role) => {
     setIsLoggedIn(true);
     setUserRole(role);
   };
 
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-    setUserRole(null);
-  };
-
   return (
-    <div className="app-shell" data-theme={theme}>
-      {isLoggedIn && <TopNav onLogout={handleLogout} userRole={userRole} theme={theme} onThemeChange={setTheme} />}
+    <div className="app-shell">
+      {isLoggedIn && <TopNav onLogout={handleLogout} userRole={userRole} />}
       <NotificationCenter />
       <Routes>
-        <Route path="/" element={<HomePage isLoggedIn={isLoggedIn} onLogin={handleLogin} theme={theme} onThemeChange={setTheme} />} />
+        <Route path="/" element={<HomePage isLoggedIn={isLoggedIn} onLogin={handleLogin} />} />
         <Route path="/login" element={<LoginPage onLogin={handleLogin} />} />
-        <Route path="/signup" element={<SignupPage />} />
+        <Route path="/signup" element={<SignupPage onLogin={handleLogin} />} />
         <Route path="/admin-dashboard" element={<AdminDashboardPage />} />
         <Route path="/employer-dashboard" element={<EmployerDashboardPage />} />
         <Route path="/employee-dashboard" element={<EmployeeDashboardPage />} />

@@ -1,31 +1,69 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardSection, PageTitle, Tabs } from '../../components/CommonBlocks';
-import { getAppliedJobs, removeAppliedJob } from '../../utils/applications';
+import { listMyApplications, listSavedJobs, unsaveJob, getJob } from '../../api/jobs';
 import { notify } from '../../utils/notifications';
-import { getSavedJobs, removeSavedJob } from '../../utils/savedJobs';
-import { allJobs } from '../../data/jobs';
+
+const EXPERIENCE_LABEL = { JUNIOR: 'Junior', MID: 'Mid', MID_LEVEL: 'Mid', SENIOR: 'Senior' };
+
+function experienceLevelLabel(level) {
+  return EXPERIENCE_LABEL[level] ?? '';
+}
+
+function formatSalary(min, max) {
+  if (!min && !max) return 'Negotiable';
+  const fmt = (n) => `$${Math.round(n / 1000)}k`;
+  if (min && max) return `${fmt(min)} – ${fmt(max)}`;
+  return min ? `From ${fmt(min)}` : `Up to ${fmt(max)}`;
+}
 
 export default function MyJobsPage() {
   const navigate = useNavigate();
   const [applications, setApplications] = useState([]);
   const [savedJobs, setSavedJobs] = useState([]);
+  const [jobMap, setJobMap] = useState({});
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('Applied Jobs');
 
   useEffect(() => {
-    setApplications(getAppliedJobs());
-    setSavedJobs(getSavedJobs());
+    Promise.all([
+      listMyApplications({ size: 50 }),
+      listSavedJobs({ size: 50 }),
+    ])
+      .then(async ([appsPage, savedPage]) => {
+        const apps = appsPage.content ?? [];
+        const saved = savedPage.content ?? [];
+        setApplications(apps);
+        setSavedJobs(saved);
+        const allJobIds = [...new Set([...apps.map((a) => a.jobId), ...saved.map((s) => s.jobId)])];
+        const jobResults = await Promise.allSettled(allJobIds.map((id) => getJob(id)));
+        const map = {};
+        allJobIds.forEach((id, idx) => {
+          if (jobResults[idx].status === 'fulfilled') map[id] = jobResults[idx].value;
+        });
+        setJobMap(map);
+      })
+      .catch(() => notify('Failed to load jobs.', 'error'))
+      .finally(() => setLoading(false));
   }, []);
 
-  const handleWithdraw = (applicationId) => {
-    setApplications(removeAppliedJob(applicationId));
-    notify('Application withdrawn.', 'success');
+  const handleRemoveSavedJob = async (jobId) => {
+    try {
+      await unsaveJob(jobId);
+      setSavedJobs((prev) => prev.filter((s) => s.jobId !== jobId));
+      notify('Saved job removed.', 'success');
+    } catch {
+      notify('Failed to remove saved job.', 'error');
+    }
   };
 
-  const handleRemoveSavedJob = (jobId) => {
-    setSavedJobs(removeSavedJob(jobId));
-    notify('Saved job removed.', 'success');
-  };
+  if (loading) {
+    return (
+      <main className="page dashboard">
+        <PageTitle title="My Jobs" subtitle="Loading..." />
+      </main>
+    );
+  }
 
   return (
     <main className="page dashboard">
@@ -39,12 +77,17 @@ export default function MyJobsPage() {
         <DashboardSection title="Applied Jobs">
           {applications.length > 0 ? (
             <div className="applied-jobs-list">
-              {applications.map((application) => (
-                <AppliedJobCard key={application.id} application={application} onWithdraw={handleWithdraw} />
+              {applications.map((app) => (
+                <AppliedJobCard key={app.id} application={app} job={jobMap[app.jobId]} />
               ))}
             </div>
           ) : (
-            <EmptyJobsState onFindJobs={() => navigate('/find-jobs')} />
+            <EmptyState
+              title="No applied jobs yet"
+              message="When you apply for a job, it will appear here with its application status."
+              onAction={() => navigate('/find-jobs')}
+              actionLabel="Browse Jobs"
+            />
           )}
         </DashboardSection>
       )}
@@ -52,12 +95,23 @@ export default function MyJobsPage() {
         <DashboardSection title="Saved Jobs">
           {savedJobs.length > 0 ? (
             <div className="applied-jobs-list">
-              {savedJobs.map((job) => (
-                <SavedJobCard key={job.id} job={job} navigate={navigate} onRemove={handleRemoveSavedJob} />
+              {savedJobs.map((saved) => (
+                <SavedJobCard
+                  key={saved.id}
+                  saved={saved}
+                  job={jobMap[saved.jobId]}
+                  navigate={navigate}
+                  onRemove={handleRemoveSavedJob}
+                />
               ))}
             </div>
           ) : (
-            <EmptySavedJobsState onFindJobs={() => navigate('/find-jobs')} />
+            <EmptyState
+              title="No saved jobs yet"
+              message="Save jobs from Find Jobs to compare and apply later."
+              onAction={() => navigate('/find-jobs')}
+              actionLabel="Browse Jobs"
+            />
           )}
         </DashboardSection>
       )}
@@ -65,87 +119,77 @@ export default function MyJobsPage() {
   );
 }
 
-function SavedJobCard({ job, navigate, onRemove }) {
+function SavedJobCard({ saved, job, navigate, onRemove }) {
+  const title = job?.title ?? `Job #${saved.jobId}`;
+  const location = job?.location ?? '';
+  const experience = experienceLevelLabel(job?.experienceLevel);
+  const salary = formatSalary(job?.salaryMin, job?.salaryMax);
+
   return (
     <article className="applied-job-card">
       <div>
         <div className="app-header">
-          <div>
-            <h4>{job.title}</h4>
-            <p className="company">{job.company}</p>
-          </div>
-          <span className="match-score">{job.matchScore}% match</span>
+          <h4>{title}</h4>
         </div>
         <div className="job-details">
-          <span className="detail">📍 {job.location}</span>
-          <span className="detail">🎯 {job.experience}</span>
-          <span className="detail">💰 {job.salary}/year</span>
+          {location && <span className="detail">{location}</span>}
+          {experience && <span className="detail">{experience}</span>}
+          <span className="detail">{salary}/year</span>
         </div>
-        <p className="muted">{job.description}</p>
+        {job?.description && <p className="muted">{job.description}</p>}
+        <p className="muted small">Saved {new Date(saved.savedAt).toLocaleDateString()}</p>
       </div>
       <div className="job-actions">
-        <button className="btn-dark small" onClick={() => navigate(`/apply/${job.id}`, { state: { job } })}>Apply</button>
-        <button className="btn-light small" onClick={() => onRemove(job.id)}>Remove</button>
+        <button className="btn-dark small" onClick={() => navigate(`/apply/${saved.jobId}`, { state: { job } })}>Apply</button>
+        <button className="btn-light small" onClick={() => onRemove(saved.jobId)}>Remove</button>
       </div>
     </article>
   );
 }
 
-function AppliedJobCard({ application, onWithdraw }) {
-  const [showConfirm, setShowConfirm] = useState(false);
-  const jobDescription = application.description || allJobs.find((job) => String(job.id) === String(application.jobId || application.id))?.description;
+function AppliedJobCard({ application, job }) {
+  const [showWithdrawInfo, setShowWithdrawInfo] = useState(false);
+  const title = job?.title ?? `Job #${application.jobId}`;
+  const location = job?.location ?? '';
+  const experience = experienceLevelLabel(job?.experienceLevel);
+  const salary = formatSalary(job?.salaryMin, job?.salaryMax);
 
   return (
     <article className="applied-job-card">
       <div>
         <div className="app-header">
-          <div>
-            <h4>{application.jobTitle}</h4>
-            <p className="company">{application.company}</p>
-          </div>
+          <h4>{title}</h4>
           <span className="status-badge review">{application.status}</span>
         </div>
         <div className="job-details">
-          <span className="detail">📍 {application.location}</span>
-          <span className="detail">🎯 {application.experience}</span>
-          <span className="detail">💰 {application.salary}/year</span>
+          {location && <span className="detail">{location}</span>}
+          {experience && <span className="detail">{experience}</span>}
+          <span className="detail">{salary}/year</span>
         </div>
-        {jobDescription && <p className="job-description">{jobDescription}</p>}
-        <p className="muted">Applied on {application.appliedAt}</p>
-        <p className="muted">CV: {application.cvName}</p>
+        {job?.description && <p className="job-description">{job.description}</p>}
+        <p className="muted">Applied on {new Date(application.appliedAt).toLocaleDateString()}</p>
+        {application.recruiterNotes && <p className="muted">Note: {application.recruiterNotes}</p>}
       </div>
       <div className="job-actions">
-        <button className="btn-light small" onClick={() => notify(`Application details for ${application.jobTitle}.`)}>Details</button>
-        {showConfirm ? (
+        {showWithdrawInfo ? (
           <div className="confirm-actions">
-            <span className="muted small">Withdraw?</span>
-            <button className="btn-light small" onClick={() => setShowConfirm(false)}>Cancel</button>
-            <button className="btn-dark small" onClick={() => onWithdraw(application.id)}>Confirm</button>
+            <span className="muted small">Contact support to withdraw applications.</span>
+            <button className="btn-light small" onClick={() => setShowWithdrawInfo(false)}>Close</button>
           </div>
         ) : (
-          <button className="btn-light small" onClick={() => setShowConfirm(true)}>Withdraw</button>
+          <button className="btn-light small" onClick={() => setShowWithdrawInfo(true)}>Withdraw</button>
         )}
       </div>
     </article>
   );
 }
 
-function EmptyJobsState({ onFindJobs }) {
+function EmptyState({ title, message, onAction, actionLabel }) {
   return (
     <div className="empty-state">
-      <h4>No applied jobs yet</h4>
-      <p className="muted">When you apply for a job, it will appear here with its application status.</p>
-      <button className="btn-dark" onClick={onFindJobs}>Browse Jobs</button>
-    </div>
-  );
-}
-
-function EmptySavedJobsState({ onFindJobs }) {
-  return (
-    <div className="empty-state">
-      <h4>No saved jobs yet</h4>
-      <p className="muted">Save jobs from Find Jobs to compare and apply later.</p>
-      <button className="btn-dark" onClick={onFindJobs}>Browse Jobs</button>
+      <h4>{title}</h4>
+      <p className="muted">{message}</p>
+      <button className="btn-dark" onClick={onAction}>{actionLabel}</button>
     </div>
   );
 }

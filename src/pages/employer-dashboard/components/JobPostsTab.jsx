@@ -1,126 +1,73 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DashboardSection } from '../../../components/CommonBlocks';
 import { notify } from '../../../utils/notifications';
-import { validateRequired, validateMinLength } from '../../../utils/validation';
+import { closeJob } from '../../../api/jobs';
 
-export default function JobPostsTab({ jobs, setJobs, jobTitle, jobDescription, setJobTitle, setJobDescription, onPostJob }) {
+const EXPERIENCE_LABEL = { JUNIOR: 'Junior', MID: 'Mid', MID_LEVEL: 'Mid', SENIOR: 'Senior' };
+
+function formatSalary(min, max) {
+  if (!min && !max) return 'Negotiable';
+  const fmt = (n) => `$${Math.round(n / 1000)}k`;
+  if (min && max) return `${fmt(min)} – ${fmt(max)}`;
+  return min ? `From ${fmt(min)}` : `Up to ${fmt(max)}`;
+}
+
+export default function JobPostsTab({ jobs, onJobPosted }) {
+  const navigate = useNavigate();
+
   return (
     <DashboardSection title="Manage Job Posts">
       <div className="jobs-management">
-        <JobPostForm
-          jobTitle={jobTitle}
-          jobDescription={jobDescription}
-          setJobTitle={setJobTitle}
-          setJobDescription={setJobDescription}
-          onSubmit={onPostJob}
-        />
-        <PostedJobsList jobs={jobs} setJobs={setJobs} setJobTitle={setJobTitle} />
+        <button className="btn-dark" onClick={() => navigate('/post-new-job')}>+ Post New Job</button>
+        <PostedJobsList jobs={jobs} />
       </div>
     </DashboardSection>
   );
 }
 
-function JobPostForm({ jobTitle, jobDescription, setJobTitle, setJobDescription, onSubmit }) {
-  const [location, setLocation] = useState('');
-  const [salary, setSalary] = useState('');
-  const [errors, setErrors] = useState({});
+function PostedJobsList({ jobs }) {
+  const [closedIds, setClosedIds] = useState([]);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const nextErrors = {};
-    if (!validateRequired(jobTitle)) nextErrors.jobTitle = 'Job title is required';
-    if (!validateMinLength(jobDescription, 30)) {
-      nextErrors.jobDescription = jobDescription.trim().length === 0
-        ? 'Job description is required'
-        : 'Description must be at least 30 characters';
+  const handleClose = async (job) => {
+    try {
+      await closeJob(job.id);
+      setClosedIds((prev) => [...prev, job.id]);
+      notify(`${job.title} closed.`, 'success');
+    } catch (err) {
+      notify(err.message ?? 'Failed to close job.', 'error');
     }
-    if (!validateRequired(location)) nextErrors.location = 'Location is required';
-    if (!validateRequired(salary)) nextErrors.salary = 'Salary range is required';
-    setErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0) return;
-
-    onSubmit(e);
-    setLocation('');
-    setSalary('');
-    setErrors({});
   };
 
-  return (
-    <div className="job-form">
-      <h4>Post New Job</h4>
-      <form onSubmit={handleSubmit} noValidate>
-        <div className="form-group">
-          <label>Job Title</label>
-          <input
-            type="text"
-            placeholder="e.g., Senior Developer"
-            value={jobTitle}
-            onChange={(e) => { setJobTitle(e.target.value); if (errors.jobTitle) setErrors((v) => ({ ...v, jobTitle: '' })); }}
-            className={errors.jobTitle ? 'input-error' : ''}
-          />
-          {errors.jobTitle && <span className="error-text">{errors.jobTitle}</span>}
-        </div>
-        <div className="form-group">
-          <label>Job Description</label>
-          <textarea
-            placeholder="Enter job description, requirements, and benefits..."
-            rows="6"
-            value={jobDescription}
-            onChange={(e) => { setJobDescription(e.target.value); if (errors.jobDescription) setErrors((v) => ({ ...v, jobDescription: '' })); }}
-            className={errors.jobDescription ? 'input-error' : ''}
-          />
-          {errors.jobDescription && <span className="error-text">{errors.jobDescription}</span>}
-        </div>
-        <div className="form-row">
-          <div className="form-group">
-            <label>Location</label>
-            <input
-              type="text"
-              placeholder="Yerevan, Armenia"
-              value={location}
-              onChange={(e) => { setLocation(e.target.value); if (errors.location) setErrors((v) => ({ ...v, location: '' })); }}
-              className={errors.location ? 'input-error' : ''}
-            />
-            {errors.location && <span className="error-text">{errors.location}</span>}
-          </div>
-          <div className="form-group">
-            <label>Salary Range</label>
-            <input
-              type="text"
-              placeholder="$50k - $80k"
-              value={salary}
-              onChange={(e) => { setSalary(e.target.value); if (errors.salary) setErrors((v) => ({ ...v, salary: '' })); }}
-              className={errors.salary ? 'input-error' : ''}
-            />
-            {errors.salary && <span className="error-text">{errors.salary}</span>}
-          </div>
-        </div>
-        <button type="submit" className="btn-dark">Post Job</button>
-      </form>
-    </div>
-  );
-}
-
-function PostedJobsList({ jobs, setJobs, setJobTitle }) {
-  const closeJob = (job) => {
-    setJobs((current) => current.filter((item) => item.id !== job.id));
-    notify(`${job.title} job closed.`, 'success');
-  };
+  if (jobs.length === 0) {
+    return (
+      <div className="empty-state">
+        <h4>No jobs posted yet</h4>
+        <p className="muted">Use the button above to post your first job.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="jobs-list">
       <h4>Your Posted Jobs</h4>
-      {jobs.map((job) => (
-        <div key={job.id} className="job-item">
-          <h5>{job.title}</h5>
-          <p className="muted">Applications: {job.applications} | Matches: {job.matches}</p>
-          <div className="job-actions">
-            <button className="btn-light small" onClick={() => setJobTitle(job.title)}>Edit</button>
-            <button className="btn-light small" onClick={() => notify(`${job.applications} applications for ${job.title}.`)}>View Applications</button>
-            <button className="btn-light small" onClick={() => closeJob(job)}>Close</button>
+      {jobs.map((job) => {
+        const isClosed = closedIds.includes(job.id) || job.status === 'CLOSED';
+        return (
+          <div key={job.id} className="job-item">
+            <h5>{job.title}</h5>
+            <p className="muted">
+              {EXPERIENCE_LABEL[job.experienceLevel] ?? ''} · {job.location ?? ''} · {formatSalary(job.salaryMin, job.salaryMax)}
+            </p>
+            <p className="muted small">Status: {isClosed ? 'CLOSED' : job.status} · Posted {new Date(job.createdAt).toLocaleDateString()}</p>
+            <div className="job-actions">
+              {!isClosed && (
+                <button className="btn-light small" onClick={() => handleClose(job)}>Close</button>
+              )}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

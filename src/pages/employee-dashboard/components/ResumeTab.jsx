@@ -1,25 +1,27 @@
 import { useNavigate } from 'react-router-dom';
 import { DashboardSection } from '../../../components/CommonBlocks';
 import { notify } from '../../../utils/notifications';
+import { getDisplayName } from '../../../utils/authState';
 
-export default function ResumeTab({ profile }) {
+export default function ResumeTab({ candidateProfile }) {
   const navigate = useNavigate();
+  const displayName = getDisplayName();
 
   return (
     <DashboardSection title="My Resume & Profile">
       <div className="resume-section">
-        <ResumeCard profile={profile} navigate={navigate} />
-        <ProfileSections profile={profile} navigate={navigate} />
+        <ResumeCard displayName={displayName} navigate={navigate} />
+        <ProfileSections profile={candidateProfile} navigate={navigate} />
       </div>
     </DashboardSection>
   );
 }
 
-function ResumeCard({ profile, navigate }) {
+function ResumeCard({ displayName, navigate }) {
   return (
     <div className="resume-card">
       <h4>📄 Resume</h4>
-      <p className="muted">{profile.name}'s job seeker profile</p>
+      <p className="muted">{displayName}'s job seeker profile</p>
       <div className="resume-actions">
         <button className="btn-light" onClick={() => navigate('/profile')}>View</button>
         <button className="btn-light" onClick={() => navigate('/profile')}>Update</button>
@@ -30,15 +32,10 @@ function ResumeCard({ profile, navigate }) {
 }
 
 function ProfileSections({ profile, navigate }) {
-  const skills = profile.skills.split(',').map((skill) => skill.trim()).filter(Boolean);
+  const skills = profile?.skills ?? [];
 
   return (
     <div className="profile-sections">
-      <div className="section-card">
-        <h4>Professional Summary</h4>
-        <p className="muted">{profile.summary || 'No summary added. This helps employers understand your background better.'}</p>
-        <button className="btn-light" onClick={() => navigate('/profile')}>Edit Summary</button>
-      </div>
       <div className="section-card">
         <h4>Skills</h4>
         <div className="skills-list">
@@ -50,9 +47,11 @@ function ProfileSections({ profile, navigate }) {
       </div>
       <div className="section-card">
         <h4>Contact</h4>
-        <p className="muted">{profile.email}</p>
-        <p className="muted">{profile.phone}</p>
-        <p className="muted">{profile.location}</p>
+        {profile?.phone && <p className="muted">{profile.phone}</p>}
+        {profile?.location && <p className="muted">{profile.location}</p>}
+        {!profile?.phone && !profile?.location && (
+          <p className="muted">Complete your profile to add contact details.</p>
+        )}
       </div>
     </div>
   );

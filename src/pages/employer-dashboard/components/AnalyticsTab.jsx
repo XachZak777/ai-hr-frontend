@@ -1,6 +1,6 @@
 import { DashboardSection } from '../../../components/CommonBlocks';
 
-const charts = ['📊 Application Trends', '📈 Hiring Funnel', '🎯 Match Quality Distribution', '⏱️ Time-to-Hire Metrics'];
+const charts = ['Application Trends', 'Hiring Funnel', 'Match Quality Distribution', 'Time-to-Hire Metrics'];
 
 export default function AnalyticsTab() {
   return (

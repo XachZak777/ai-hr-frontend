@@ -1,34 +1,52 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardSection } from '../../../components/CommonBlocks';
-import { notify } from '../../../utils/notifications';
 
-const recentApplications = [];
+export default function OverviewTab({ jobs, loading, setActiveTab }) {
+  const activeJobs = jobs.filter((j) => j.status === 'OPEN');
+  const draftJobs = jobs.filter((j) => j.status === 'DRAFT');
 
-export { recentApplications };
-
-export default function OverviewTab({ jobs, setActiveTab }) {
   return (
     <>
-      <DashboardSection title="Recent Job Postings">
-        <ActiveJobsTable jobs={jobs} onView={() => setActiveTab('Candidates')} />
+      <DashboardSection title="Job Overview">
+        <div className="overview-grid">
+          <div className="quick-stats">
+            <ul className="quick-list">
+              <li><strong>{activeJobs.length} open jobs</strong> accepting applications</li>
+              <li><strong>{draftJobs.length} draft jobs</strong> not yet published</li>
+              <li><strong>{jobs.length} total jobs</strong> posted</li>
+            </ul>
+          </div>
+        </div>
       </DashboardSection>
-      <DashboardSection title="Recent Applications">
-        <RecentApplicationsList />
+      <DashboardSection title="Recent Job Postings">
+        {loading ? (
+          <p className="muted">Loading...</p>
+        ) : (
+          <ActiveJobsTable jobs={jobs.slice(0, 5)} onView={() => setActiveTab('Job Posts')} />
+        )}
       </DashboardSection>
     </>
   );
 }
 
 function ActiveJobsTable({ jobs, onView }) {
+  if (jobs.length === 0) {
+    return (
+      <div className="empty-state">
+        <h4>No jobs posted yet</h4>
+        <p className="muted">Post your first job to start receiving applications.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="table-wrapper">
       <table className="data-table">
         <thead>
           <tr>
             <th>Job Title</th>
-            <th>Applications</th>
-            <th>AI Matches</th>
+            <th>Status</th>
+            <th>Location</th>
             <th>Posted</th>
             <th>Action</th>
           </tr>
@@ -37,46 +55,15 @@ function ActiveJobsTable({ jobs, onView }) {
           {jobs.map((job) => (
             <tr key={job.id}>
               <td className="bold">{job.title}</td>
-              <td>{job.applications}</td>
-              <td className="accent">{job.matches}</td>
-              <td className="muted">{job.posted}</td>
+              <td><span className={`status-badge ${job.status === 'OPEN' ? 'review' : ''}`}>{job.status}</span></td>
+              <td className="muted">{job.location ?? '—'}</td>
+              <td className="muted">{new Date(job.createdAt).toLocaleDateString()}</td>
               <td><button className="btn-light small" onClick={onView}>View</button></td>
             </tr>
           ))}
         </tbody>
       </table>
     </div>
-  );
-}
-
-function RecentApplicationsList() {
-  const navigate = useNavigate();
-  const [selectedProfile, setSelectedProfile] = useState(null);
-
-  return (
-    <>
-      <div className="applications-list">
-        {recentApplications.map((app) => (
-          <div key={app.id} className="application-card">
-            <div className="app-header">
-              <h4>{app.name}</h4>
-              <span className={`status-badge ${app.status}`}>{app.status}</span>
-            </div>
-            <p className="muted">{app.position}</p>
-            <div className="app-footer">
-              <p className="match-score">Match: <span className="accent">{app.matchScore}</span></p>
-              <div className="inline-actions">
-                <button className="btn-light small" onClick={() => setSelectedProfile(app)}>View Profile</button>
-                <button className="btn-dark small" onClick={() => navigate('/employer-schedule')}>Schedule Interview</button>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-      {selectedProfile && (
-        <CandidateProfilePanel candidate={selectedProfile} onClose={() => setSelectedProfile(null)} />
-      )}
-    </>
   );
 }
 
@@ -111,10 +98,12 @@ export function CandidateProfilePanel({ candidate, onClose }) {
           <p className="muted">{candidate.education}</p>
         </div>
       </div>
-      <div>
-        <h5>Professional Summary</h5>
-        <p>{candidate.summary}</p>
-      </div>
+      {candidate.summary && (
+        <div>
+          <h5>Professional Summary</h5>
+          <p>{candidate.summary}</p>
+        </div>
+      )}
       <div className="skills-list">
         {candidate.skills?.map((skill) => <span key={skill} className="skill-tag">{skill}</span>)}
       </div>

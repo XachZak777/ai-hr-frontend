@@ -70,7 +70,7 @@ export function QuickStatsRow({ items }) {
   );
 }
 
-export function EventCards({ events }) {
+export function EventCards({ events, readOnly = false }) {
   return (
     <div className="events-stack">
       {events.map((event) => (
@@ -84,8 +84,12 @@ export function EventCards({ events }) {
           <p>{event.metaB}</p>
           <div className="inline-actions">
             <button className="btn-dark" onClick={() => notify(`${event.primary}: ${event.title}`)}>{event.primary}</button>
-            <button className="btn-light" onClick={() => notify(`Rescheduling ${event.title}`)}>Reschedule</button>
-            <button className="btn-light" onClick={() => notify(`Editing ${event.title}`)}>Edit</button>
+            {!readOnly && (
+              <>
+                <button className="btn-light" onClick={() => notify(`Rescheduling ${event.title}`)}>Reschedule</button>
+                <button className="btn-light" onClick={() => notify(`Editing ${event.title}`)}>Edit</button>
+              </>
+            )}
           </div>
         </article>
       ))}

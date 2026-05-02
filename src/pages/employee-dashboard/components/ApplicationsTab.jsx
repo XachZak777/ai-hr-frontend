@@ -22,22 +22,20 @@ export default function ApplicationsTab({ applications }) {
         <table className="data-table">
           <thead>
             <tr>
-              <th>Company</th>
-              <th>Position</th>
-              <th>Match</th>
+              <th>Job ID</th>
               <th>Status</th>
               <th>Applied</th>
+              <th>Updated</th>
               <th>Action</th>
             </tr>
           </thead>
           <tbody>
             {applications.map((app) => (
               <tr key={app.id}>
-                <td className="bold">{app.company}</td>
-                <td>{app.jobTitle}</td>
-                <td className="accent">{app.matchScore ? `${app.matchScore}%` : '-'}</td>
+                <td className="bold">Job #{app.jobId}</td>
                 <td><span className="status-badge review">{app.status}</span></td>
-                <td className="muted">{app.appliedAt}</td>
+                <td className="muted">{new Date(app.appliedAt).toLocaleDateString()}</td>
+                <td className="muted">{new Date(app.updatedAt).toLocaleDateString()}</td>
                 <td>
                   <button className="btn-light small" onClick={() => navigate('/my-jobs')}>Details</button>
                 </td>

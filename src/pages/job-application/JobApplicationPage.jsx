@@ -1,69 +1,74 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { DashboardSection, PageTitle } from '../../components/CommonBlocks';
-import { saveAppliedJob } from '../../utils/applications';
 import { notify } from '../../utils/notifications';
-import { getUserProfile } from '../../utils/profile';
 import { validateEmail, validatePhone } from '../../utils/validation';
-import { allJobs } from '../../data/jobs';
+import { applyToJob, getJob } from '../../api/jobs';
+import { getAuthUser } from '../../utils/authState';
 
-const initialFormData = {
-  fullName: '',
-  email: '',
-  phone: '',
-  location: '',
-  linkedin: '',
-  coverLetter: '',
-  cv: null,
-};
+const EXPERIENCE_LABEL = { ENTRY: 'Entry', MID: 'Mid', SENIOR: 'Senior', LEAD: 'Lead' };
+
+function formatSalary(min, max) {
+  if (!min && !max) return 'Negotiable';
+  const fmt = (n) => `$${Math.round(n / 1000)}k`;
+  if (min && max) return `${fmt(min)} – ${fmt(max)}`;
+  return min ? `From ${fmt(min)}` : `Up to ${fmt(max)}`;
+}
 
 export default function JobApplicationPage() {
   const navigate = useNavigate();
   const { jobId } = useParams();
   const { state } = useLocation();
+  const [job, setJob] = useState(state?.job ?? null);
   const [formData, setFormData] = useState(() => {
-    const profile = getUserProfile('employee');
+    const authUser = getAuthUser();
     return {
-      ...initialFormData,
-      fullName: profile.name || '',
-      email: profile.email || '',
-      phone: profile.phone || '',
-      location: profile.location || '',
-      linkedin: profile.linkedin || '',
-      coverLetter: profile.summary || '',
+      fullName: authUser?.fullName ?? '',
+      email: authUser?.email ?? '',
+      phone: '',
+      location: '',
+      linkedin: '',
+      coverLetter: '',
     };
   });
   const [errors, setErrors] = useState({});
+  const [submitting, setSubmitting] = useState(false);
 
-  const job = useMemo(() => {
-    return state?.job || allJobs.find((item) => String(item.id) === jobId);
-  }, [jobId, state]);
+  useEffect(() => {
+    if (!job && jobId) {
+      getJob(jobId).then(setJob).catch(() => {});
+    }
+  }, [job, jobId]);
 
   const handleChange = (e) => {
     const { name, value, files } = e.target;
-    setFormData((current) => ({
-      ...current,
-      [name]: files ? files[0] : value,
-    }));
+    setFormData((current) => ({ ...current, [name]: files ? files[0] : value }));
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: '' }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const nextErrors = validateApplication(formData);
     setErrors(nextErrors);
-
     if (Object.keys(nextErrors).length > 0) return;
 
-    saveAppliedJob(createApplicationRecord(job, formData, jobId));
-    notify(`Application submitted for ${job?.title || 'this job'}.`, 'success');
-    navigate('/my-jobs');
+    setSubmitting(true);
+    try {
+      await applyToJob(jobId, { coverLetter: formData.coverLetter || undefined });
+      notify(`Application submitted for ${job?.title ?? 'this job'}.`, 'success');
+      navigate('/my-jobs');
+    } catch (err) {
+      notify(err.message ?? 'Failed to submit application.', 'error');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <main className="page dashboard">
       <PageTitle
         title="Apply for Job"
-        subtitle="Fill in your information and upload your CV"
+        subtitle="Fill in your information to apply for this position"
         actions={<button className="btn-light" onClick={() => navigate('/find-jobs')}>Back to Jobs</button>}
       />
       <div className="application-layout">
@@ -71,6 +76,7 @@ export default function JobApplicationPage() {
         <ApplicationForm
           formData={formData}
           errors={errors}
+          submitting={submitting}
           onChange={handleChange}
           onSubmit={handleSubmit}
           onCancel={() => navigate('/find-jobs')}
@@ -89,24 +95,25 @@ function JobSummary({ job }) {
     );
   }
 
+  const experience = EXPERIENCE_LABEL[job.experienceLevel] ?? '';
+  const salary = formatSalary(job.salaryMin, job.salaryMax);
+
   return (
     <DashboardSection title="Selected Job">
       <div className="job-application-summary">
         <h4>{job.title}</h4>
-        <p className="company">{job.company}</p>
         <div className="job-details">
-          <span className="detail">📍 {job.location}</span>
-          <span className="detail">🎯 {job.experience}</span>
-          <span className="detail">💰 {job.salary}/year</span>
+          {job.location && <span className="detail">📍 {job.location}</span>}
+          {experience && <span className="detail">🎯 {experience}</span>}
+          <span className="detail">💰 {salary}/year</span>
         </div>
         <p className="muted">{job.description}</p>
-        <span className="match-score">{job.matchScore}% match</span>
       </div>
     </DashboardSection>
   );
 }
 
-function ApplicationForm({ formData, errors, onChange, onSubmit, onCancel }) {
+function ApplicationForm({ formData, errors, submitting, onChange, onSubmit, onCancel }) {
   return (
     <DashboardSection title="Your Information">
       <form className="application-form" onSubmit={onSubmit} noValidate>
@@ -121,16 +128,18 @@ function ApplicationForm({ formData, errors, onChange, onSubmit, onCancel }) {
         <FormField name="linkedin" label="LinkedIn / Portfolio" placeholder="https://..." value={formData.linkedin} onChange={onChange} />
         <div className="form-group">
           <label>Cover Letter</label>
-          <textarea name="coverLetter" placeholder="Tell the employer why you are a strong fit..." rows="5" value={formData.coverLetter} onChange={onChange}></textarea>
-        </div>
-        <div className="form-group">
-          <label>Upload CV</label>
-          <input name="cv" type="file" accept=".pdf,.doc,.docx" onChange={onChange} className={errors.cv ? 'input-error' : ''} />
-          {formData.cv && <span className="file-name">{formData.cv.name}</span>}
-          {errors.cv && <span className="error-text">{errors.cv}</span>}
+          <textarea
+            name="coverLetter"
+            placeholder="Tell the employer why you are a strong fit..."
+            rows="5"
+            value={formData.coverLetter}
+            onChange={onChange}
+          />
         </div>
         <div className="form-actions">
-          <button type="submit" className="btn-dark">Submit Application</button>
+          <button type="submit" className="btn-dark" disabled={submitting}>
+            {submitting ? 'Submitting...' : 'Submit Application'}
+          </button>
           <button type="button" className="btn-light" onClick={onCancel}>Cancel</button>
         </div>
       </form>
@@ -150,7 +159,6 @@ function FormField({ name, label, value, error, onChange, type = 'text', placeho
 
 function validateApplication(formData) {
   const nextErrors = {};
-
   if (!formData.fullName.trim()) nextErrors.fullName = 'Full name is required';
   if (!validateEmail(formData.email)) nextErrors.email = 'Please enter a valid email address';
   if (!formData.phone.trim()) {
@@ -159,29 +167,5 @@ function validateApplication(formData) {
     nextErrors.phone = 'Enter a valid phone number';
   }
   if (!formData.location.trim()) nextErrors.location = 'Location is required';
-  if (!formData.cv) nextErrors.cv = 'Please upload your CV';
-
   return nextErrors;
-}
-
-function createApplicationRecord(job, formData, jobId) {
-  const submittedJob = job || {};
-
-  return {
-    id: String(submittedJob.id || jobId || Date.now()),
-    jobId: submittedJob.id || jobId,
-    jobTitle: submittedJob.title || 'Selected Job',
-    company: submittedJob.company || 'Company',
-    description: submittedJob.description || 'Job description was not provided.',
-    location: submittedJob.location || formData.location,
-    experience: submittedJob.experience || 'Not specified',
-    salary: submittedJob.salary || 'Not specified',
-    matchScore: submittedJob.matchScore || null,
-    status: 'Submitted',
-    applicantName: formData.fullName,
-    email: formData.email,
-    phone: formData.phone,
-    cvName: formData.cv?.name || 'Uploaded CV',
-    appliedAt: new Date().toLocaleDateString(),
-  };
 }

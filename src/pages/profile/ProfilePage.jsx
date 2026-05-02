@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DashboardSection, PageTitle } from '../../components/CommonBlocks';
 import './ProfilePage.style.css';
 import { notify } from '../../utils/notifications';
-import { getUserPreferences, getUserProfile, saveUserPreferences, saveUserProfile } from '../../utils/profile';
 import { validateEmail, validatePhone, validateUrl, validateRequired } from '../../utils/validation';
+import { getUser, updateUser } from '../../api/users';
+import { getCandidate, updateCandidate, createCandidate } from '../../api/candidates';
+import { getRecruiter, updateRecruiter, createRecruiter } from '../../api/recruiters';
+import { getAuthUser, updateAuthUser } from '../../utils/authState';
 
 const roleLabels = {
   admin: 'Administrator',
@@ -11,33 +14,71 @@ const roleLabels = {
   employee: 'Job Seeker',
 };
 
-export default function ProfilePage({ userRole = 'employee' }) {
-  const [profile, setProfile] = useState(() => getUserProfile(userRole));
-  const [preferences, setPreferences] = useState(() => getUserPreferences(userRole));
-  const [errors, setErrors] = useState({});
+const emptyUserForm = { fullName: '', email: '' };
+const emptyCandidateForm = { phone: '', location: '', linkedinUrl: '', skills: '' };
+const emptyRecruiterForm = { positionTitle: '', department: '' };
 
-  const handleProfileChange = (field, value) => {
-    setProfile((current) => ({ ...current, [field]: value }));
+export default function ProfilePage({ userRole = 'employee' }) {
+  const authUser = getAuthUser();
+  const [userForm, setUserForm] = useState({ fullName: authUser?.fullName ?? '', email: authUser?.email ?? '' });
+  const [roleProfile, setRoleProfile] = useState(null);
+  const [errors, setErrors] = useState({});
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!authUser?.profileId) return;
+    const fetcher = userRole === 'employee' ? getCandidate : getRecruiter;
+    fetcher(authUser.profileId)
+      .then((profile) => setRoleProfile(profile))
+      .catch(() => {});
+  }, [authUser?.profileId, userRole]);
+
+  const handleUserChange = (field, value) => {
+    setUserForm((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) setErrors((e) => ({ ...e, [field]: '' }));
   };
 
-  const handlePreferenceChange = (field) => {
-    setPreferences((current) => ({ ...current, [field]: !current[field] }));
+  const handleRoleChange = (field, value) => {
+    setRoleProfile((prev) => ({ ...(prev ?? {}), [field]: value }));
+    if (errors[field]) setErrors((e) => ({ ...e, [field]: '' }));
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
     const nextErrors = {};
-    if (!validateRequired(profile.name)) nextErrors.name = 'Name is required';
-    if (profile.email && !validateEmail(profile.email)) nextErrors.email = 'Enter a valid email address';
-    if (profile.phone && !validatePhone(profile.phone)) nextErrors.phone = 'Enter a valid phone number';
-    if (profile.linkedin && !validateUrl(profile.linkedin)) nextErrors.linkedin = 'Enter a valid URL starting with https://';
+    if (!validateRequired(userForm.fullName)) nextErrors.fullName = 'Name is required';
+    if (userForm.email && !validateEmail(userForm.email)) nextErrors.email = 'Enter a valid email address';
+    if (roleProfile?.phone && !validatePhone(roleProfile.phone)) nextErrors.phone = 'Enter a valid phone number';
+    if (roleProfile?.linkedinUrl && !validateUrl(roleProfile.linkedinUrl)) nextErrors.linkedinUrl = 'Enter a valid URL starting with https://';
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
-    saveUserProfile(userRole, profile);
-    saveUserPreferences(userRole, preferences);
-    notify('Profile settings saved.', 'success');
+    setSaving(true);
+    try {
+      await updateUser(authUser.userId, { fullName: userForm.fullName, email: userForm.email });
+      updateAuthUser({ fullName: userForm.fullName, email: userForm.email });
+
+      if (userRole === 'employee' || userRole === 'employer') {
+        const profileBody = userRole === 'employee'
+          ? { phone: roleProfile?.phone, location: roleProfile?.location, linkedinUrl: roleProfile?.linkedinUrl, skills: parseSkills(roleProfile?.skills) }
+          : { positionTitle: roleProfile?.positionTitle, department: roleProfile?.department };
+
+        if (authUser.profileId) {
+          const updater = userRole === 'employee' ? updateCandidate : updateRecruiter;
+          await updater(authUser.profileId, profileBody);
+        } else {
+          const creator = userRole === 'employee' ? createCandidate : createRecruiter;
+          const created = await creator(profileBody);
+          updateAuthUser({ profileId: created.id });
+        }
+      }
+
+      notify('Profile settings saved.', 'success');
+    } catch (err) {
+      notify(err.message ?? 'Failed to save profile.', 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -46,44 +87,54 @@ export default function ProfilePage({ userRole = 'employee' }) {
       <div className="settings-layout">
         <DashboardSection title="Account">
           <div className="profile-card">
-            <div className="avatar large-avatar">{initials(profile.name)}</div>
+            <div className="avatar large-avatar">{initials(userForm.fullName)}</div>
             <div>
-              <h3>{profile.name}</h3>
+              <h3>{userForm.fullName || 'Your Name'}</h3>
               <p className="muted">{roleLabels[userRole] || 'User'}</p>
-              <p className="muted">{profile.headline}</p>
             </div>
           </div>
         </DashboardSection>
         <DashboardSection title="Personal Information">
           <form className="settings-form" onSubmit={handleSave} noValidate>
             <div className="form-row">
-              <Field label="Name" value={profile.name} onChange={(value) => handleProfileChange('name', value)} error={errors.name} />
-              <Field label="Email" type="email" value={profile.email} onChange={(value) => handleProfileChange('email', value)} error={errors.email} />
+              <Field label="Full Name" value={userForm.fullName} onChange={(v) => handleUserChange('fullName', v)} error={errors.fullName} />
+              <Field label="Email" type="email" value={userForm.email} onChange={(v) => handleUserChange('email', v)} error={errors.email} />
             </div>
-            <div className="form-row">
-              <Field label="Phone" value={profile.phone} onChange={(value) => handleProfileChange('phone', value)} error={errors.phone} />
-              <Field label="Location" value={profile.location} onChange={(value) => handleProfileChange('location', value)} />
-            </div>
-            <Field label="Organization / Status" value={profile.organization} onChange={(value) => handleProfileChange('organization', value)} />
-            <Field label="Headline" value={profile.headline} onChange={(value) => handleProfileChange('headline', value)} />
-            <Field label="LinkedIn / Portfolio" value={profile.linkedin} onChange={(value) => handleProfileChange('linkedin', value)} error={errors.linkedin} />
-            <Field label="Skills" value={profile.skills} onChange={(value) => handleProfileChange('skills', value)} />
-            <div className="form-group">
-              <label>Summary</label>
-              <textarea rows="4" value={profile.summary} onChange={(e) => handleProfileChange('summary', e.target.value)}></textarea>
-            </div>
-            <button type="submit" className="btn-dark">Save Profile</button>
+            {userRole === 'employee' && (
+              <CandidateFields profile={roleProfile} errors={errors} onChange={handleRoleChange} />
+            )}
+            {userRole === 'employer' && (
+              <RecruiterFields profile={roleProfile} onChange={handleRoleChange} />
+            )}
+            <button type="submit" className="btn-dark" disabled={saving}>
+              {saving ? 'Saving...' : 'Save Profile'}
+            </button>
           </form>
-        </DashboardSection>
-        <DashboardSection title="Preferences">
-          <div className="preference-list">
-            <Preference label="Email updates" checked={preferences.emailUpdates} onChange={() => handlePreferenceChange('emailUpdates')} />
-            <Preference label="Application alerts" checked={preferences.applicationAlerts} onChange={() => handlePreferenceChange('applicationAlerts')} />
-            <Preference label="Weekly summary" checked={preferences.weeklySummary} onChange={() => handlePreferenceChange('weeklySummary')} />
-          </div>
         </DashboardSection>
       </div>
     </main>
+  );
+}
+
+function CandidateFields({ profile, errors, onChange }) {
+  return (
+    <>
+      <div className="form-row">
+        <Field label="Phone" value={profile?.phone ?? ''} onChange={(v) => onChange('phone', v)} error={errors.phone} />
+        <Field label="Location" value={profile?.location ?? ''} onChange={(v) => onChange('location', v)} />
+      </div>
+      <Field label="LinkedIn / Portfolio" value={profile?.linkedinUrl ?? ''} onChange={(v) => onChange('linkedinUrl', v)} error={errors.linkedinUrl} />
+      <Field label="Skills (comma separated)" value={Array.isArray(profile?.skills) ? profile.skills.join(', ') : (profile?.skills ?? '')} onChange={(v) => onChange('skills', v)} />
+    </>
+  );
+}
+
+function RecruiterFields({ profile, onChange }) {
+  return (
+    <div className="form-row">
+      <Field label="Position Title" value={profile?.positionTitle ?? ''} onChange={(v) => onChange('positionTitle', v)} />
+      <Field label="Department" value={profile?.department ?? ''} onChange={(v) => onChange('department', v)} />
+    </div>
   );
 }
 
@@ -97,15 +148,6 @@ function Field({ label, value, onChange, type = 'text', error = '' }) {
   );
 }
 
-function Preference({ label, checked, onChange }) {
-  return (
-    <label className="preference-item">
-      <span>{label}</span>
-      <input type="checkbox" checked={checked} onChange={onChange} />
-    </label>
-  );
-}
-
 function initials(name = '') {
   return name
     .split(' ')
@@ -114,4 +156,10 @@ function initials(name = '') {
     .join('')
     .slice(0, 2)
     .toUpperCase() || '?';
+}
+
+function parseSkills(value) {
+  if (Array.isArray(value)) return value;
+  if (!value) return [];
+  return value.split(',').map((s) => s.trim()).filter(Boolean);
 }

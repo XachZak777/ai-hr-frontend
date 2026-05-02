@@ -1,9 +1,8 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import Logo from './Logo';
-import ThemeToggle from './ui/ThemeToggle';
 import { notify } from '../utils/notifications';
-import { getUserProfile } from '../utils/profile';
+import { getDisplayName } from '../utils/authState';
 
 const adminLinks = [
   ['/', 'Home'],
@@ -28,7 +27,7 @@ const employeeLinks = [
 
 const linksByRole = { admin: adminLinks, employer: employerLinks, employee: employeeLinks };
 
-export default function TopNav({ onLogout, userRole = 'employer', theme = 'light', onThemeChange }) {
+export default function TopNav({ onLogout, userRole = 'employer' }) {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const { pathname } = useLocation();
   const navigate = useNavigate();
@@ -36,10 +35,10 @@ export default function TopNav({ onLogout, userRole = 'employer', theme = 'light
   if (pathname === '/signup' || pathname === '/login') return null;
 
   const links = linksByRole[userRole] ?? employerLinks;
-  const profile = getUserProfile(userRole);
+  const displayName = getDisplayName() || 'Account';
 
-  const handleLogout = () => {
-    onLogout();
+  const handleLogout = async () => {
+    await onLogout();
     navigate('/');
     setShowUserMenu(false);
     notify('Signed out successfully.', 'success');
@@ -68,10 +67,9 @@ export default function TopNav({ onLogout, userRole = 'employer', theme = 'light
         ))}
       </div>
       <div className="nav-end">
-        <ThemeToggle theme={theme} onThemeChange={onThemeChange} />
         <div className="user-menu">
           <button className="user-button" onClick={() => setShowUserMenu((prev) => !prev)}>
-            👤 {profile.name || userRole.charAt(0).toUpperCase() + userRole.slice(1)}
+            {displayName}
           </button>
           {showUserMenu && (
             <div className="user-dropdown">

@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageTitle, Tabs } from '../../components/CommonBlocks';
-import { getAppliedJobs } from '../../utils/applications';
-import { getUserProfile } from '../../utils/profile';
-import { allJobs } from '../../data/jobs';
+import { listMyApplications } from '../../api/jobs';
+import { getCandidate } from '../../api/candidates';
+import { getAuthUser, getDisplayName } from '../../utils/authState';
+import { notify } from '../../utils/notifications';
 import OverviewTab from './components/OverviewTab';
 import ResumeTab from './components/ResumeTab';
 import ApplicationsTab from './components/ApplicationsTab';
@@ -15,18 +16,36 @@ const dashboardTabs = ['Overview', 'Resume', 'Applications', 'Job Search', 'Mess
 export default function EmployeeDashboardPage() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('Overview');
-  const profile = getUserProfile('employee');
-  const applications = getAppliedJobs();
-  const profileCompletion = getProfileCompletion(profile);
-  const recommendedJobs = getRecommendedJobs(profile);
-  const stats = getEmployeeStats(applications, profileCompletion);
-  const firstName = profile.name.split(' ')[0] || 'there';
+  const [applications, setApplications] = useState([]);
+  const [candidateProfile, setCandidateProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const authUser = getAuthUser();
+  const displayName = getDisplayName();
+  const firstName = displayName.split(' ')[0] || 'there';
+
+  useEffect(() => {
+    const tasks = [listMyApplications({ size: 50 })];
+    if (authUser?.profileId) {
+      tasks.push(getCandidate(authUser.profileId));
+    }
+    Promise.allSettled(tasks).then(([appsResult, profileResult]) => {
+      if (appsResult.status === 'fulfilled') {
+        setApplications(appsResult.value.content ?? []);
+      }
+      if (profileResult?.status === 'fulfilled') {
+        setCandidateProfile(profileResult.value);
+      }
+    }).finally(() => setLoading(false));
+  }, [authUser?.profileId]);
+
+  const profileCompletion = getProfileCompletion(authUser, candidateProfile);
 
   return (
     <main className="page dashboard">
       <PageTitle
         title={`Welcome back, ${firstName}!`}
-        subtitle={profile.headline || 'Track your applications and manage your career journey'}
+        subtitle="Track your applications and manage your career journey"
         actions={
           <div className="inline-actions">
             <button className="btn-light" onClick={() => navigate('/employee-schedule')}>My Schedule</button>
@@ -40,61 +59,48 @@ export default function EmployeeDashboardPage() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         applications={applications}
-        profile={profile}
+        candidateProfile={candidateProfile}
         profileCompletion={profileCompletion}
-        recommendedJobs={recommendedJobs}
+        loading={loading}
       />
     </main>
   );
 }
 
-function EmployeeTabContent({ activeTab, setActiveTab, applications, profile, profileCompletion, recommendedJobs }) {
+function EmployeeTabContent({ activeTab, setActiveTab, applications, candidateProfile, profileCompletion, loading }) {
   if (activeTab === 'Overview') {
     return (
       <OverviewTab
         applications={applications}
         profileCompletion={profileCompletion}
-        recommendedJobs={recommendedJobs}
+        loading={loading}
         setActiveTab={setActiveTab}
       />
     );
   }
-  if (activeTab === 'Resume') return <ResumeTab profile={profile} />;
+  if (activeTab === 'Resume') return <ResumeTab candidateProfile={candidateProfile} />;
   if (activeTab === 'Applications') return <ApplicationsTab applications={applications} />;
-  if (activeTab === 'Job Search') return <JobSearchTab profile={profile} />;
+  if (activeTab === 'Job Search') return <JobSearchTab />;
   if (activeTab === 'Messages') return <MessagesTab />;
   return null;
 }
 
-function getEmployeeStats(applications, profileCompletion) {
-  return [
-    { title: 'Applications Sent', value: String(applications.length), note: applications.length > 0 ? 'Tracked in My Jobs' : 'Start applying' },
-    { title: 'Profile Completion', value: `${profileCompletion}%`, note: profileCompletion === 100 ? 'complete' : 'keep improving' },
-    { title: 'Interview Invites', value: String(applications.filter((app) => app.status === 'Interview').length), note: 'This month' },
-    { title: 'Match Score', value: `${getAverageMatch(applications)}%`, note: 'Average' },
-  ];
-}
+function getProfileCompletion(authUser, candidateProfile) {
+  let filled = 0;
+  let total = 0;
 
-function getAverageMatch(applications) {
-  const matches = applications.map((app) => Number(app.matchScore)).filter(Boolean);
-  if (matches.length === 0) return 91;
-  return Math.round(matches.reduce((total, score) => total + score, 0) / matches.length);
-}
+  const userFields = [authUser?.fullName, authUser?.email];
+  userFields.forEach((f) => { total++; if (f?.trim()) filled++; });
 
-function getProfileCompletion(profile) {
-  const fields = ['name', 'email', 'phone', 'location', 'headline', 'linkedin', 'skills', 'summary'];
-  const completed = fields.filter((field) => String(profile[field] || '').trim()).length;
-  return Math.round((completed / fields.length) * 100);
-}
+  if (candidateProfile) {
+    const profileFields = [candidateProfile.phone, candidateProfile.location, candidateProfile.linkedinUrl, candidateProfile.resumeUrl];
+    const skills = candidateProfile.skills?.length > 0;
+    profileFields.forEach((f) => { total++; if (f?.trim()) filled++; });
+    total++;
+    if (skills) filled++;
+  } else {
+    total += 5;
+  }
 
-function getRecommendedJobs(profile) {
-  const skills = profile.skills.toLowerCase();
-  return [...allJobs]
-    .map((job) => ({
-      ...job,
-      position: job.title,
-      matchScore: skills.includes('react') && job.title.toLowerCase().includes('react') ? 96 : job.matchScore,
-    }))
-    .sort((a, b) => b.matchScore - a.matchScore)
-    .slice(0, 3);
+  return Math.round((filled / total) * 100);
 }

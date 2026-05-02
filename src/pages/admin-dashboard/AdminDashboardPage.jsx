@@ -1,21 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Button from '@mui/material/Button';
 import { DashboardSection, PageTitle, StatsRow, Tabs } from '../../components/CommonBlocks';
 import { notify } from '../../utils/notifications';
-import { getUserProfile } from '../../utils/profile';
 import { validateEmail, validateRequired } from '../../utils/validation';
+import { listUsers, deactivateUser } from '../../api/users';
+import { getDisplayName } from '../../utils/authState';
 
 const dashboardTabs = ['Overview', 'Users', 'System', 'Analytics', 'Settings'];
-
-const stats = [
-  { title: 'Total Users', value: '—', note: '' },
-  { title: 'Active Companies', value: '—', note: '' },
-  { title: 'Monthly Hires', value: '—', note: '' },
-  { title: 'System Health', value: '—', note: '' },
-];
-
-const recentUsers = [];
 
 const systemMetrics = [
   { label: 'API Response Time', value: '—', status: 'good' },
@@ -25,22 +17,53 @@ const systemMetrics = [
 ];
 
 const quickActions = [
-  ['👥', 'Manage Users', 'View and manage platform users'],
-  ['🔧', 'System Settings', 'Configure platform settings'],
-  ['📊', 'View Reports', 'Generate and view reports'],
-  ['⚠️', 'Support Tickets', 'Review support requests'],
+  ['Manage Users', 'View and manage platform users'],
+  ['System Settings', 'Configure platform settings'],
+  ['View Reports', 'Generate and view reports'],
+  ['Support Tickets', 'Review support requests'],
 ];
 
 export default function AdminDashboardPage() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('Overview');
-  const profile = getUserProfile('admin');
+  const [users, setUsers] = useState([]);
+  const [userStats, setUserStats] = useState([
+    { title: 'Total Users', value: '—', note: '' },
+    { title: 'Candidates', value: '—', note: '' },
+    { title: 'Recruiters', value: '—', note: '' },
+    { title: 'Admins', value: '—', note: '' },
+  ]);
+
+  useEffect(() => {
+    listUsers({ size: 50 })
+      .then((page) => {
+        const allUsers = page.content ?? [];
+        setUsers(allUsers);
+        setUserStats([
+          { title: 'Total Users', value: String(page.totalElements ?? allUsers.length), note: '' },
+          { title: 'Candidates', value: String(allUsers.filter((u) => u.role === 'CANDIDATE').length), note: '' },
+          { title: 'Recruiters', value: String(allUsers.filter((u) => u.role === 'RECRUITER').length), note: '' },
+          { title: 'Admins', value: String(allUsers.filter((u) => u.role === 'ADMIN').length), note: '' },
+        ]);
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleDeactivate = async (userId) => {
+    try {
+      await deactivateUser(userId);
+      setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, active: false } : u));
+      notify('User deactivated.', 'success');
+    } catch (err) {
+      notify(err.message ?? 'Failed to deactivate user.', 'error');
+    }
+  };
 
   return (
     <main className="page dashboard">
       <PageTitle
         title="Admin Dashboard"
-        subtitle={profile.headline || 'Platform management and oversight'}
+        subtitle={`Welcome, ${getDisplayName()}`}
         actions={
           <Button variant="contained" onClick={() => navigate('/admin-schedule')}>
             View Schedule
@@ -48,26 +71,26 @@ export default function AdminDashboardPage() {
         }
       />
       <Tabs tabs={dashboardTabs} activeTab={activeTab} onChange={setActiveTab} />
-      <StatsRow items={stats} />
-      <AdminTabContent activeTab={activeTab} setActiveTab={setActiveTab} />
+      <StatsRow items={userStats} />
+      <AdminTabContent activeTab={activeTab} setActiveTab={setActiveTab} users={users} onDeactivate={handleDeactivate} />
     </main>
   );
 }
 
-function AdminTabContent({ activeTab, setActiveTab }) {
-  if (activeTab === 'Overview') return <OverviewTab setActiveTab={setActiveTab} />;
-  if (activeTab === 'Users') return <UsersTab />;
+function AdminTabContent({ activeTab, setActiveTab, users, onDeactivate }) {
+  if (activeTab === 'Overview') return <OverviewTab users={users} setActiveTab={setActiveTab} onDeactivate={onDeactivate} />;
+  if (activeTab === 'Users') return <UsersTab users={users} onDeactivate={onDeactivate} />;
   if (activeTab === 'System') return <SystemTab />;
   if (activeTab === 'Analytics') return <AnalyticsTab />;
   if (activeTab === 'Settings') return <SettingsTab />;
   return null;
 }
 
-function OverviewTab({ setActiveTab }) {
+function OverviewTab({ users, setActiveTab, onDeactivate }) {
   return (
     <>
       <DashboardSection title="Recent Users">
-        <RecentUsersTable onView={() => setActiveTab('Users')} />
+        <UsersTable users={users.slice(0, 5)} onView={() => setActiveTab('Users')} onDeactivate={onDeactivate} />
       </DashboardSection>
       <DashboardSection title="Quick Actions">
         <QuickActionsGrid setActiveTab={setActiveTab} />
@@ -76,16 +99,16 @@ function OverviewTab({ setActiveTab }) {
   );
 }
 
-function UsersTab() {
+function UsersTab({ users, onDeactivate }) {
   return (
     <DashboardSection title="User Management">
-      <RecentUsersTable />
+      <UsersTable users={users} onDeactivate={onDeactivate} />
     </DashboardSection>
   );
 }
 
-function RecentUsersTable({ onView }) {
-  if (recentUsers.length === 0) {
+function UsersTable({ users, onView, onDeactivate }) {
+  if (users.length === 0) {
     return (
       <div className="empty-state">
         <h4>No users yet</h4>
@@ -102,21 +125,28 @@ function RecentUsersTable({ onView }) {
             <th>Name</th>
             <th>Email</th>
             <th>Role</th>
-            <th>Status</th>
+            <th>Active</th>
             <th>Action</th>
           </tr>
         </thead>
         <tbody>
-          {recentUsers.map((user) => (
+          {users.map((user) => (
             <tr key={user.id}>
-              <td>{user.name}</td>
+              <td>{user.fullName || '—'}</td>
               <td>{user.email}</td>
               <td>{user.role}</td>
-              <td><span className={`status-badge ${user.status}`}>{user.status}</span></td>
+              <td><span className={`status-badge ${user.active ? 'review' : ''}`}>{user.active ? 'Active' : 'Inactive'}</span></td>
               <td>
-                <Button variant="outlined" size="small" onClick={() => onView?.()}>
-                  View
-                </Button>
+                {user.active && (
+                  <Button variant="outlined" size="small" onClick={() => onDeactivate(user.id)}>
+                    Deactivate
+                  </Button>
+                )}
+                {onView && (
+                  <Button variant="outlined" size="small" onClick={onView}>
+                    View
+                  </Button>
+                )}
               </td>
             </tr>
           ))}
@@ -136,9 +166,8 @@ function QuickActionsGrid({ setActiveTab }) {
 
   return (
     <div className="actions-grid">
-      {quickActions.map(([icon, title, description]) => (
+      {quickActions.map(([title, description]) => (
         <button key={title} className="action-card" onClick={() => setActiveTab(tabByAction[title])}>
-          <span className="icon">{icon}</span>
           <h4>{title}</h4>
           <p className="muted">{description}</p>
         </button>

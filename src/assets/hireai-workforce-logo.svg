@@ -8,8 +8,7 @@
   </defs>
 
   <g fill="none" fill-rule="evenodd">
-    <text x="108" y="89" fill="#24328b" font-family="Inter, Arial, Helvetica, sans-serif" font-size="95" font-weight="800" letter-spacing="-4">Hire</text>
-    <circle cx="186.4" cy="28.7" r="8.7" fill="#ff3445"/>
-    <text x="299" y="89" fill="url(#aiGradient)" font-family="Inter, Arial, Helvetica, sans-serif" font-size="95" font-weight="800" letter-spacing="-5">AI</text>
+    <text x="0" y="89" fill="#5b5bd6" font-family="Inter, Arial, Helvetica, sans-serif" font-size="95" font-weight="800" letter-spacing="-4">Hire</text>
+    <text x="182" y="89" fill="url(#aiGradient)" font-family="Inter, Arial, Helvetica, sans-serif" font-size="95" font-weight="800" letter-spacing="-5">AI</text>
   </g>
 </svg>

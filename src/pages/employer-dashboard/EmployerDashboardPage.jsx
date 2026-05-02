@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageTitle, Tabs } from '../../components/CommonBlocks';
+import { listMyJobs } from '../../api/jobs';
+import { getDisplayName } from '../../utils/authState';
 import { notify } from '../../utils/notifications';
-import { getUserProfile } from '../../utils/profile';
 import OverviewTab from './components/OverviewTab';
 import JobPostsTab from './components/JobPostsTab';
 import CandidatesTab from './components/CandidatesTab';
@@ -12,43 +13,29 @@ import TeamTab from './components/TeamTab';
 
 const dashboardTabs = ['Overview', 'AI Agent', 'Job Posts', 'Candidates', 'Analytics', 'Team'];
 
-const initialJobs = [];
-
-const stats = [
-  { title: 'Active Jobs', value: '0', note: '' },
-  { title: 'Total Applications', value: '0', note: '' },
-  { title: 'AI Matches', value: '0', note: '' },
-  { title: 'Interviews Scheduled', value: '0', note: '' },
-];
-
 export default function EmployerDashboardPage() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('Overview');
-  const [jobs, setJobs] = useState(initialJobs);
-  const [jobTitle, setJobTitle] = useState('');
-  const [jobDescription, setJobDescription] = useState('');
-  const profile = getUserProfile('employer');
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const displayName = getDisplayName();
 
-  const handlePostJob = (e) => {
-    e.preventDefault();
-    if (!jobTitle || !jobDescription) {
-      notify('Please fill in all job details.', 'error');
-      return;
-    }
-    setJobs((current) => [
-      { id: Date.now(), title: jobTitle, applications: 0, matches: 0, posted: 'Just now' },
-      ...current,
-    ]);
-    notify(`Job "${jobTitle}" posted successfully.`, 'success');
-    setJobTitle('');
-    setJobDescription('');
+  useEffect(() => {
+    listMyJobs({ size: 50 })
+      .then((page) => setJobs(page.content ?? []))
+      .catch(() => notify('Failed to load your jobs.', 'error'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleJobPosted = (newJob) => {
+    setJobs((prev) => [newJob, ...prev]);
   };
 
   return (
     <main className="page dashboard">
       <PageTitle
         title="Employer Dashboard"
-        subtitle={`Welcome, ${profile.name}`}
+        subtitle={`Welcome, ${displayName}`}
         actions={
           <div className="inline-actions">
             <button className="btn-light" onClick={() => navigate('/employer-schedule')}>Schedule</button>
@@ -62,22 +49,16 @@ export default function EmployerDashboardPage() {
         setActiveTab={setActiveTab}
         navigate={navigate}
         jobs={jobs}
-        setJobs={setJobs}
-        jobTitle={jobTitle}
-        jobDescription={jobDescription}
-        setJobTitle={setJobTitle}
-        setJobDescription={setJobDescription}
-        onPostJob={handlePostJob}
+        loading={loading}
+        onJobPosted={handleJobPosted}
       />
     </main>
   );
 }
 
-function EmployerTabContent(props) {
-  const { activeTab, setActiveTab, jobs, setJobs, jobTitle, jobDescription, setJobTitle, setJobDescription, onPostJob } = props;
-
-  if (activeTab === 'Overview') return <OverviewTab jobs={jobs} setActiveTab={setActiveTab} />;
-  if (activeTab === 'Job Posts') return <JobPostsTab jobs={jobs} setJobs={setJobs} jobTitle={jobTitle} jobDescription={jobDescription} setJobTitle={setJobTitle} setJobDescription={setJobDescription} onPostJob={onPostJob} />;
+function EmployerTabContent({ activeTab, setActiveTab, navigate, jobs, loading, onJobPosted }) {
+  if (activeTab === 'Overview') return <OverviewTab jobs={jobs} loading={loading} setActiveTab={setActiveTab} />;
+  if (activeTab === 'Job Posts') return <JobPostsTab jobs={jobs} onJobPosted={onJobPosted} />;
   if (activeTab === 'Candidates') return <CandidatesTab />;
   if (activeTab === 'Analytics') return <AnalyticsTab />;
   if (activeTab === 'AI Agent') return <AiAgentTab />;

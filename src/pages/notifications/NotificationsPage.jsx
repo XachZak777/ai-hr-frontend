@@ -1,50 +1,80 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DashboardSection, PageTitle } from '../../components/CommonBlocks';
 import { notify } from '../../utils/notifications';
+import { getNotificationPreferences, updateNotificationPreference } from '../../api/notifications';
 
-const notificationSeeds = {
-  admin: [],
-  employer: [],
-  employee: [],
+const NOTIFICATION_LABELS = {
+  USER_REGISTERED:             'Account activity',
+  APPLICATION_SUBMITTED:       'Application submitted',
+  APPLICATION_STATUS_CHANGED:  'Application status updates',
+  INTERVIEW_SCHEDULED:         'Interview scheduled',
+  INTERVIEW_COMPLETED:         'Interview completed',
 };
 
-export default function NotificationsPage({ userRole = 'employee' }) {
-  const [notifications, setNotifications] = useState(notificationSeeds[userRole] || notificationSeeds.employee);
+const NOTIFICATION_TYPES = Object.keys(NOTIFICATION_LABELS);
 
-  const handleMarkAllRead = () => {
-    setNotifications([]);
-    notify('All notifications marked as read.', 'success');
+export default function NotificationsPage() {
+  const [preferences, setPreferences] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(null);
+
+  useEffect(() => {
+    getNotificationPreferences()
+      .then((list) => {
+        const map = {};
+        for (const type of NOTIFICATION_TYPES) {
+          const pref = list.find((p) => p.notificationType === type);
+          map[type] = pref ? pref.enabled : true;
+        }
+        setPreferences(map);
+      })
+      .catch(() => {
+        const defaults = {};
+        for (const type of NOTIFICATION_TYPES) defaults[type] = true;
+        setPreferences(defaults);
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleToggle = async (notificationType) => {
+    const enabled = !preferences[notificationType];
+    setUpdating(notificationType);
+    try {
+      await updateNotificationPreference({ notificationType, enabled });
+      setPreferences((prev) => ({ ...prev, [notificationType]: enabled }));
+      notify(`Notification preference updated.`, 'success');
+    } catch {
+      notify('Failed to update preference.', 'error');
+    } finally {
+      setUpdating(null);
+    }
   };
 
   return (
     <main className="page dashboard">
       <PageTitle
-        title="Notifications"
-        subtitle="Review recent account activity"
-        actions={<button className="btn-light" onClick={handleMarkAllRead}>Mark All Read</button>}
+        title="Notification Preferences"
+        subtitle="Choose which notifications you want to receive"
       />
-      <DashboardSection title="Recent Notifications">
-        {notifications.length > 0 ? (
-          <div className="notifications-list">
-            {notifications.map(([title, message, time]) => (
-              <article key={`${title}-${time}`} className="notification-card">
-                <span className="alarm-logo" aria-hidden="true">⏰</span>
-                <div>
-                  <h4>{title}</h4>
-                  <p className="muted">{message}</p>
-                </div>
-                <span className="time">{time}</span>
-              </article>
-            ))}
-          </div>
+      <DashboardSection title="Email Notifications">
+        {loading ? (
+          <p className="muted">Loading preferences...</p>
         ) : (
-          <div className="empty-state">
-            <h4>No unread notifications</h4>
-            <p className="muted">You are all caught up.</p>
+          <div className="preference-list">
+            {NOTIFICATION_TYPES.map((type) => (
+              <label key={type} className="preference-item">
+                <span>{NOTIFICATION_LABELS[type]}</span>
+                <input
+                  type="checkbox"
+                  checked={preferences[type] ?? true}
+                  disabled={updating === type}
+                  onChange={() => handleToggle(type)}
+                />
+              </label>
+            ))}
           </div>
         )}
       </DashboardSection>
     </main>
   );
 }
-
