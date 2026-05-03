@@ -71,6 +71,7 @@ export function QuickStatsRow({ items }) {
 }
 
 export function EventCards({ events, readOnly = false }) {
+  const navigate = useNavigate();
   return (
     <div className="events-stack">
       {events.map((event) => (
@@ -83,7 +84,12 @@ export function EventCards({ events, readOnly = false }) {
           <p>{event.metaA}</p>
           <p>{event.metaB}</p>
           <div className="inline-actions">
-            <button className="btn-dark" onClick={() => notify(`${event.primary}: ${event.title}`)}>{event.primary}</button>
+            <button
+              className="btn-dark"
+              onClick={() => event.primaryLink ? navigate(event.primaryLink) : notify(`${event.primary}: ${event.title}`)}
+            >
+              {event.primary}
+            </button>
             {!readOnly && (
               <>
                 <button className="btn-light" onClick={() => notify(`Rescheduling ${event.title}`)}>Reschedule</button>

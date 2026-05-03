@@ -44,6 +44,15 @@ export function answerInterview(id, answer) {
 }
 
 /**
+ * Candidate / Recruiter: start a scheduled interview — transitions it to IN_PROGRESS.
+ * @param {number|string} id
+ * @returns {Promise<AiTurnResponse>}
+ */
+export function startInterview(id) {
+  return request(`/api/v1/interviews/${id}/start`, { method: 'POST' });
+}
+
+/**
  * Candidate: list the authenticated candidate's own interviews.
  * @param {{ page?: number, size?: number }} params
  * @returns {Promise<Page<InterviewDto>>}

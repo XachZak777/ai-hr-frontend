@@ -14,10 +14,6 @@ const roleLabels = {
   employee: 'Job Seeker',
 };
 
-const emptyUserForm = { fullName: '', email: '' };
-const emptyCandidateForm = { phone: '', location: '', linkedinUrl: '', skills: '' };
-const emptyRecruiterForm = { positionTitle: '', department: '' };
-
 export default function ProfilePage({ userRole = 'employee' }) {
   const authUser = getAuthUser();
   const [userForm, setUserForm] = useState({ fullName: authUser?.fullName ?? '', email: authUser?.email ?? '' });
@@ -29,7 +25,12 @@ export default function ProfilePage({ userRole = 'employee' }) {
     if (!authUser?.profileId) return;
     const fetcher = userRole === 'employee' ? getCandidate : getRecruiter;
     fetcher(authUser.profileId)
-      .then((profile) => setRoleProfile(profile))
+      .then((profile) => {
+        setRoleProfile(profile);
+        if (userRole === 'employer' && profile.companyId) {
+          updateAuthUser({ companyId: profile.companyId });
+        }
+      })
       .catch(() => {});
   }, [authUser?.profileId, userRole]);
 
@@ -50,6 +51,17 @@ export default function ProfilePage({ userRole = 'employee' }) {
     if (userForm.email && !validateEmail(userForm.email)) nextErrors.email = 'Enter a valid email address';
     if (roleProfile?.phone && !validatePhone(roleProfile.phone)) nextErrors.phone = 'Enter a valid phone number';
     if (roleProfile?.linkedinUrl && !validateUrl(roleProfile.linkedinUrl)) nextErrors.linkedinUrl = 'Enter a valid URL starting with https://';
+    if (roleProfile?.resumeUrl && !validateUrl(roleProfile.resumeUrl)) nextErrors.resumeUrl = 'Enter a valid URL starting with https://';
+
+    if (userRole === 'employer') {
+      const companyId = roleProfile?.companyId ?? authUser?.companyId;
+      if (!companyId) {
+        notify('Please set up your company first from the Post New Job page.', 'error');
+        return;
+      }
+      if (!validateRequired(roleProfile?.positionTitle)) nextErrors.positionTitle = 'Position title is required';
+    }
+
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
@@ -58,17 +70,33 @@ export default function ProfilePage({ userRole = 'employee' }) {
       await updateUser(authUser.userId, { fullName: userForm.fullName, email: userForm.email });
       updateAuthUser({ fullName: userForm.fullName, email: userForm.email });
 
-      if (userRole === 'employee' || userRole === 'employer') {
-        const profileBody = userRole === 'employee'
-          ? { phone: roleProfile?.phone, location: roleProfile?.location, linkedinUrl: roleProfile?.linkedinUrl, skills: parseSkills(roleProfile?.skills) }
-          : { positionTitle: roleProfile?.positionTitle, department: roleProfile?.department };
-
+      if (userRole === 'employee') {
+        const profileBody = {
+          phone: roleProfile?.phone,
+          location: roleProfile?.location,
+          linkedinUrl: roleProfile?.linkedinUrl,
+          resumeUrl: roleProfile?.resumeUrl,
+          skills: parseSkills(roleProfile?.skills),
+        };
         if (authUser.profileId) {
-          const updater = userRole === 'employee' ? updateCandidate : updateRecruiter;
-          await updater(authUser.profileId, profileBody);
+          await updateCandidate(authUser.profileId, profileBody);
         } else {
-          const creator = userRole === 'employee' ? createCandidate : createRecruiter;
-          const created = await creator(profileBody);
+          const created = await createCandidate(profileBody);
+          updateAuthUser({ profileId: created.id });
+        }
+      }
+
+      if (userRole === 'employer') {
+        const companyId = roleProfile?.companyId ?? authUser?.companyId;
+        const profileBody = {
+          companyId,
+          positionTitle: roleProfile?.positionTitle,
+          department: roleProfile?.department,
+        };
+        if (authUser.profileId) {
+          await updateRecruiter(authUser.profileId, profileBody);
+        } else {
+          const created = await createRecruiter(profileBody);
           updateAuthUser({ profileId: created.id });
         }
       }
@@ -104,7 +132,7 @@ export default function ProfilePage({ userRole = 'employee' }) {
               <CandidateFields profile={roleProfile} errors={errors} onChange={handleRoleChange} />
             )}
             {userRole === 'employer' && (
-              <RecruiterFields profile={roleProfile} onChange={handleRoleChange} />
+              <RecruiterFields profile={roleProfile} errors={errors} onChange={handleRoleChange} authUser={authUser} />
             )}
             <button type="submit" className="btn-dark" disabled={saving}>
               {saving ? 'Saving...' : 'Save Profile'}
@@ -123,18 +151,27 @@ function CandidateFields({ profile, errors, onChange }) {
         <Field label="Phone" value={profile?.phone ?? ''} onChange={(v) => onChange('phone', v)} error={errors.phone} />
         <Field label="Location" value={profile?.location ?? ''} onChange={(v) => onChange('location', v)} />
       </div>
-      <Field label="LinkedIn / Portfolio" value={profile?.linkedinUrl ?? ''} onChange={(v) => onChange('linkedinUrl', v)} error={errors.linkedinUrl} />
-      <Field label="Skills (comma separated)" value={Array.isArray(profile?.skills) ? profile.skills.join(', ') : (profile?.skills ?? '')} onChange={(v) => onChange('skills', v)} />
+      <div className="form-row">
+        <Field label="LinkedIn / Portfolio URL" value={profile?.linkedinUrl ?? ''} onChange={(v) => onChange('linkedinUrl', v)} error={errors.linkedinUrl} />
+        <Field label="Resume URL" value={profile?.resumeUrl ?? ''} onChange={(v) => onChange('resumeUrl', v)} error={errors.resumeUrl} />
+      </div>
+      <Field label="Skills (comma-separated)" value={Array.isArray(profile?.skills) ? profile.skills.join(', ') : (profile?.skills ?? '')} onChange={(v) => onChange('skills', v)} />
     </>
   );
 }
 
-function RecruiterFields({ profile, onChange }) {
+function RecruiterFields({ profile, errors, onChange, authUser }) {
+  const companyId = profile?.companyId ?? authUser?.companyId;
   return (
-    <div className="form-row">
-      <Field label="Position Title" value={profile?.positionTitle ?? ''} onChange={(v) => onChange('positionTitle', v)} />
-      <Field label="Department" value={profile?.department ?? ''} onChange={(v) => onChange('department', v)} />
-    </div>
+    <>
+      {!companyId && (
+        <p className="muted">No company linked yet. Go to <strong>Post New Job</strong> to create your company profile.</p>
+      )}
+      <div className="form-row">
+        <Field label="Position Title" value={profile?.positionTitle ?? ''} onChange={(v) => onChange('positionTitle', v)} error={errors.positionTitle} />
+        <Field label="Department" value={profile?.department ?? ''} onChange={(v) => onChange('department', v)} />
+      </div>
+    </>
   );
 }
 
@@ -149,13 +186,7 @@ function Field({ label, value, onChange, type = 'text', error = '' }) {
 }
 
 function initials(name = '') {
-  return name
-    .split(' ')
-    .map((part) => part[0])
-    .filter(Boolean)
-    .join('')
-    .slice(0, 2)
-    .toUpperCase() || '?';
+  return name.split(' ').map((p) => p[0]).filter(Boolean).join('').slice(0, 2).toUpperCase() || '?';
 }
 
 function parseSkills(value) {

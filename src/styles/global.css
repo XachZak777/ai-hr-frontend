@@ -1306,6 +1306,54 @@ textarea:focus {
 
 .compact-empty { padding: 20px; }
 
+/* ─── CV Editor ──────────────────────────────────────────────── */
+.cv-section {
+  margin-bottom: 24px;
+  border-top: 1px solid var(--beige-200);
+  padding-top: 16px;
+}
+.cv-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.cv-section-header h4 { margin: 0; }
+
+.cv-entry {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--beige-100);
+}
+.cv-entry:last-of-type { border-bottom: none; }
+.cv-entry strong { display: block; margin-bottom: 2px; }
+
+.cv-entry-form {
+  background: var(--beige-50);
+  border: 1px solid var(--beige-200);
+  border-radius: 8px;
+  padding: 16px;
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.cv-entry-form .form-row { margin-bottom: 0; }
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--gray-600);
+  margin: 8px 0;
+  cursor: pointer;
+}
+.checkbox-label input[type="checkbox"] { width: auto; margin: 0; }
+
 /* ─── Animations (minimal set) ───────────────────────────────── */
 @keyframes fadeIn    { from { opacity: 0; } to { opacity: 1; } }
 @keyframes fadeOut   { from { opacity: 1; } to { opacity: 0; } }

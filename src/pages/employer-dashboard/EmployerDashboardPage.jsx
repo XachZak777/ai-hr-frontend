@@ -59,7 +59,7 @@ export default function EmployerDashboardPage() {
 function EmployerTabContent({ activeTab, setActiveTab, navigate, jobs, loading, onJobPosted }) {
   if (activeTab === 'Overview') return <OverviewTab jobs={jobs} loading={loading} setActiveTab={setActiveTab} />;
   if (activeTab === 'Job Posts') return <JobPostsTab jobs={jobs} onJobPosted={onJobPosted} />;
-  if (activeTab === 'Candidates') return <CandidatesTab />;
+  if (activeTab === 'Candidates') return <CandidatesTab jobs={jobs} />;
   if (activeTab === 'Analytics') return <AnalyticsTab />;
   if (activeTab === 'AI Agent') return <AiAgentTab />;
   if (activeTab === 'Team') return <TeamTab />;

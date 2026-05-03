@@ -12,6 +12,7 @@ function adaptInterview(interview) {
     metaB: '',
     status,
     primary: status === 'completed' ? 'View Results' : 'Join Interview',
+    primaryLink: `/interview/${interview.id}`,
   };
 }
 

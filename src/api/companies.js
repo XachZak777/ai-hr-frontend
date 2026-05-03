@@ -1,7 +1,7 @@
 import { request, buildQuery } from './client';
 
 /**
- * Admin: create a new company.
+ * Create a new company. Recruiters can create a company they will manage.
  * @param {CompanyDto} body
  * @returns {Promise<CompanyDto>}
  */

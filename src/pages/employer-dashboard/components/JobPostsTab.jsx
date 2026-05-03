@@ -4,7 +4,7 @@ import { DashboardSection } from '../../../components/CommonBlocks';
 import { notify } from '../../../utils/notifications';
 import { closeJob } from '../../../api/jobs';
 
-const EXPERIENCE_LABEL = { JUNIOR: 'Junior', MID: 'Mid', MID_LEVEL: 'Mid', SENIOR: 'Senior' };
+const EXPERIENCE_LABEL = { ENTRY: 'Entry', MID: 'Mid', SENIOR: 'Senior', LEAD: 'Lead' };
 
 function formatSalary(min, max) {
   if (!min && !max) return 'Negotiable';

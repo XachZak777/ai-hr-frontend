@@ -18,6 +18,7 @@ import MyJobsPage from './pages/my-jobs/MyJobsPage';
 import NotificationsPage from './pages/notifications/NotificationsPage';
 import PostNewJobPage from './pages/post-new-job/PostNewJobPage';
 import ProfilePage from './pages/profile/ProfilePage';
+import InterviewRoomPage from './pages/interview-room/InterviewRoomPage';
 import { clearAuthUser, getAuthUser, getFrontendRole } from './utils/authState';
 import { tokenStore } from './api/client';
 
@@ -69,6 +70,7 @@ export default function App() {
         <Route path="/profile" element={<ProfilePage userRole={userRole || 'employee'} />} />
         <Route path="/notifications" element={<NotificationsPage userRole={userRole || 'employee'} />} />
         <Route path="/post-new-job" element={<PostNewJobPage />} />
+        <Route path="/interview/:id" element={<InterviewRoomPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>
