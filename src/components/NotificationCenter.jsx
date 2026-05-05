@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
 
+let _id = 0;
+const nextId = () => String(++_id);
+
 export default function NotificationCenter() {
   const [notifications, setNotifications] = useState([]);
 
   useEffect(() => {
     const handleNotify = (event) => {
       const notification = {
-        id: crypto.randomUUID(),
+        id: nextId(),
         type: event.detail?.type || 'info',
         message: event.detail?.message || '',
       };
