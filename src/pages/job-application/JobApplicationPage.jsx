@@ -4,8 +4,8 @@ import { DashboardSection, PageTitle } from '../../components/CommonBlocks';
 import { saveAppliedJob } from '../../utils/applications';
 import { notify } from '../../utils/notifications';
 import { getUserProfile } from '../../utils/profile';
-import { validateEmail } from '../../utils/validation';
-import { allJobs } from '../find-jobs/FindJobsPage';
+import { validateEmail, validatePhone } from '../../utils/validation';
+import { allJobs } from '../../data/jobs';
 
 const initialFormData = {
   fullName: '',
@@ -150,11 +150,14 @@ function FormField({ name, label, value, error, onChange, type = 'text', placeho
 
 function validateApplication(formData) {
   const nextErrors = {};
-  const phoneRegex = /^[+\d][\d\s()-]{6,}$/;
 
   if (!formData.fullName.trim()) nextErrors.fullName = 'Full name is required';
   if (!validateEmail(formData.email)) nextErrors.email = 'Please enter a valid email address';
-  if (!phoneRegex.test(formData.phone.trim())) nextErrors.phone = 'Please enter a valid phone number';
+  if (!formData.phone.trim()) {
+    nextErrors.phone = 'Phone number is required';
+  } else if (!validatePhone(formData.phone)) {
+    nextErrors.phone = 'Enter a valid phone number';
+  }
   if (!formData.location.trim()) nextErrors.location = 'Location is required';
   if (!formData.cv) nextErrors.cv = 'Please upload your CV';
 

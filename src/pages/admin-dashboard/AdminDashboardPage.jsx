@@ -1,29 +1,27 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import Button from '@mui/material/Button';
 import { DashboardSection, PageTitle, StatsRow, Tabs } from '../../components/CommonBlocks';
 import { notify } from '../../utils/notifications';
 import { getUserProfile } from '../../utils/profile';
+import { validateEmail, validateRequired } from '../../utils/validation';
 
 const dashboardTabs = ['Overview', 'Users', 'System', 'Analytics', 'Settings'];
 
 const stats = [
-  { title: 'Total Users', value: '2,847', note: '+12%' },
-  { title: 'Active Companies', value: '156', note: '+8%' },
-  { title: 'Monthly Hires', value: '492', note: '+23%' },
-  { title: 'System Health', value: '99.8%', note: 'stable' }
+  { title: 'Total Users', value: '—', note: '' },
+  { title: 'Active Companies', value: '—', note: '' },
+  { title: 'Monthly Hires', value: '—', note: '' },
+  { title: 'System Health', value: '—', note: '' },
 ];
 
-const recentUsers = [
-  { id: 1, name: 'Armen Sarkissian', email: 'armen@techarmenia.am', role: 'Employer', status: 'active' },
-  { id: 2, name: 'Gayane Mkrtchyan', email: 'gayane@innovationhub.am', role: 'Employer', status: 'active' },
-  { id: 3, name: 'Davit Harutyunyan', email: 'davit@example.am', role: 'Employee', status: 'active' },
-  { id: 4, name: 'Anna Grigoryan', email: 'anna@example.am', role: 'Employee', status: 'pending' },
-];
+const recentUsers = [];
 
 const systemMetrics = [
-  { label: 'API Response Time', value: '45ms', status: 'good' },
-  { label: 'Database Load', value: '32%', status: 'good' },
-  { label: 'Memory Usage', value: '58%', status: 'good' },
-  { label: 'Error Rate', value: '0.02%', status: 'excellent' },
+  { label: 'API Response Time', value: '—', status: 'good' },
+  { label: 'Database Load', value: '—', status: 'good' },
+  { label: 'Memory Usage', value: '—', status: 'good' },
+  { label: 'Error Rate', value: '—', status: 'good' },
 ];
 
 const quickActions = [
@@ -34,6 +32,7 @@ const quickActions = [
 ];
 
 export default function AdminDashboardPage() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('Overview');
   const profile = getUserProfile('admin');
 
@@ -42,7 +41,11 @@ export default function AdminDashboardPage() {
       <PageTitle
         title="Admin Dashboard"
         subtitle={profile.headline || 'Platform management and oversight'}
-        actions={<button className="btn-dark" onClick={() => window.location.href = '/admin-schedule'}>View Schedule</button>}
+        actions={
+          <Button variant="contained" onClick={() => navigate('/admin-schedule')}>
+            View Schedule
+          </Button>
+        }
       />
       <Tabs tabs={dashboardTabs} activeTab={activeTab} onChange={setActiveTab} />
       <StatsRow items={stats} />
@@ -82,6 +85,15 @@ function UsersTab() {
 }
 
 function RecentUsersTable({ onView }) {
+  if (recentUsers.length === 0) {
+    return (
+      <div className="empty-state">
+        <h4>No users yet</h4>
+        <p className="muted">Platform users will appear here once they register.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="table-wrapper">
       <table className="data-table">
@@ -101,7 +113,11 @@ function RecentUsersTable({ onView }) {
               <td>{user.email}</td>
               <td>{user.role}</td>
               <td><span className={`status-badge ${user.status}`}>{user.status}</span></td>
-              <td><button className="btn-light small" onClick={() => onView?.()}>View</button></td>
+              <td>
+                <Button variant="outlined" size="small" onClick={() => onView?.()}>
+                  View
+                </Button>
+              </td>
             </tr>
           ))}
         </tbody>
@@ -159,16 +175,47 @@ function AnalyticsTab() {
 }
 
 function SettingsTab() {
+  const [settings, setSettings] = useState({ platformName: '', supportEmail: '' });
+  const [errors, setErrors] = useState({});
+
+  const updateField = (field, value) => {
+    setSettings((s) => ({ ...s, [field]: value }));
+    if (errors[field]) setErrors((e) => ({ ...e, [field]: '' }));
+  };
+
+  const handleSave = () => {
+    const nextErrors = {};
+    if (!validateRequired(settings.platformName)) nextErrors.platformName = 'Platform name is required';
+    if (!validateEmail(settings.supportEmail)) nextErrors.supportEmail = 'Enter a valid email address';
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
+    notify('Admin settings saved successfully.', 'success');
+  };
+
   return (
     <DashboardSection title="Admin Settings">
       <div className="settings-form">
         <div className="form-group">
           <label>Platform Name</label>
-          <input type="text" placeholder="HireAI Armenia" />
+          <input
+            type="text"
+            value={settings.platformName}
+            onChange={(e) => updateField('platformName', e.target.value)}
+            placeholder="HireAI Armenia"
+            className={errors.platformName ? 'input-error' : ''}
+          />
+          {errors.platformName && <span className="error-text">{errors.platformName}</span>}
         </div>
         <div className="form-group">
           <label>Support Email</label>
-          <input type="email" placeholder="support@hireai.am" />
+          <input
+            type="email"
+            value={settings.supportEmail}
+            onChange={(e) => updateField('supportEmail', e.target.value)}
+            placeholder="support@hireai.am"
+            className={errors.supportEmail ? 'input-error' : ''}
+          />
+          {errors.supportEmail && <span className="error-text">{errors.supportEmail}</span>}
         </div>
         <div className="form-group">
           <label>Maintenance Mode</label>
@@ -177,7 +224,9 @@ function SettingsTab() {
             Enable Maintenance Mode
           </label>
         </div>
-        <button className="btn-dark" onClick={() => notify('Admin settings saved successfully.', 'success')}>Save Settings</button>
+        <Button variant="contained" onClick={handleSave}>
+          Save Settings
+        </Button>
       </div>
     </DashboardSection>
   );

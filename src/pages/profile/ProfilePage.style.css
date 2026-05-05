@@ -1,0 +1,6 @@
+/* ProfilePage */
+
+.profile-page .settings-form textarea {
+  resize: vertical;
+  min-height: 90px;
+}

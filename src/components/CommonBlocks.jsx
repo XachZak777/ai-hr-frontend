@@ -1,51 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { notify } from '../utils/notifications';
 
-export function BrandHeader({ links = [], user = 'EU' }) {
-  const navigate = useNavigate();
-  const routes = getHeaderRoutes(links, user);
-
-  return (
-    <header className="brand-row">
-      <div className="mini-links">
-        {links.map((link) => (
-          <span key={link} className="nav-link" onClick={() => navigate(routes[link] || '/')}>{link}</span>
-        ))}
-      </div>
-      <div className="avatar">{user}</div>
-    </header>
-  );
-}
-
-function getHeaderRoutes(links, user) {
-  const isAdmin = user === 'AU';
-  const isEmployee = links.includes('Find Jobs');
-
-  if (isAdmin) {
-    return { Dashboard: '/admin-dashboard', Schedule: '/admin-schedule' };
-  }
-
-  if (isEmployee) {
-    return { Dashboard: '/employee-dashboard', Schedule: '/employee-schedule', 'Find Jobs': '/find-jobs', 'My Jobs': '/my-jobs' };
-  }
-
-  return { Dashboard: '/employer-dashboard', Schedule: '/employer-schedule' };
-}
-
-export function StatsRow({ items }) {
-  return (
-    <section className="stats-grid">
-      {items.map((item) => (
-        <article key={item.title} className="card stat-card">
-          <p className="muted">{item.title}</p>
-          <h3>{item.value}</h3>
-          <p className="accent">{item.note}</p>
-        </article>
-      ))}
-    </section>
-  );
-}
-
 export function PageTitle({ title, subtitle, actions }) {
   return (
     <div className="title-row">
@@ -85,6 +40,20 @@ export function DashboardSection({ title, children }) {
       {title && <h3>{title}</h3>}
       {children}
     </section>
+  );
+}
+
+export function StatsRow({ items }) {
+  return (
+    <div className="quick-stats-row">
+      {items.map((stat) => (
+        <div key={stat.title} className="stat-card">
+          <p className="muted">{stat.title}</p>
+          <h3>{stat.value}</h3>
+          {stat.note && <p className="muted small">{stat.note}</p>}
+        </div>
+      ))}
+    </div>
   );
 }
 

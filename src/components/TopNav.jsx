@@ -1,6 +1,7 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import Logo from './Logo';
+import ThemeToggle from './ui/ThemeToggle';
 import { notify } from '../utils/notifications';
 import { getUserProfile } from '../utils/profile';
 
@@ -25,16 +26,17 @@ const employeeLinks = [
   ['/my-jobs', 'My Jobs'],
 ];
 
+const linksByRole = { admin: adminLinks, employer: employerLinks, employee: employeeLinks };
+
 export default function TopNav({ onLogout, userRole = 'employer', theme = 'light', onThemeChange }) {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const { pathname } = useLocation();
   const navigate = useNavigate();
 
-  const links = userRole === 'admin' ? adminLinks : userRole === 'employee' ? employeeLinks : employerLinks;
-  const profile = getUserProfile(userRole);
+  if (pathname === '/signup' || pathname === '/login') return null;
 
-  const isSignupOrLogin = pathname === '/signup' || pathname === '/login';
-  if (isSignupOrLogin) return null;
+  const links = linksByRole[userRole] ?? employerLinks;
+  const profile = getUserProfile(userRole);
 
   const handleLogout = () => {
     onLogout();
@@ -68,7 +70,7 @@ export default function TopNav({ onLogout, userRole = 'employer', theme = 'light
       <div className="nav-end">
         <ThemeToggle theme={theme} onThemeChange={onThemeChange} />
         <div className="user-menu">
-          <button className="user-button" onClick={() => setShowUserMenu(!showUserMenu)}>
+          <button className="user-button" onClick={() => setShowUserMenu((prev) => !prev)}>
             👤 {profile.name || userRole.charAt(0).toUpperCase() + userRole.slice(1)}
           </button>
           {showUserMenu && (
@@ -82,15 +84,5 @@ export default function TopNav({ onLogout, userRole = 'employer', theme = 'light
         </div>
       </div>
     </nav>
-  );
-}
-
-function ThemeToggle({ theme, onThemeChange }) {
-  const nextTheme = theme === 'light' ? 'dark' : 'light';
-
-  return (
-    <button className="theme-toggle" onClick={() => onThemeChange?.(nextTheme)} aria-label="Change theme">
-      {theme === 'light' ? 'Dark' : 'Light'}
-    </button>
   );
 }

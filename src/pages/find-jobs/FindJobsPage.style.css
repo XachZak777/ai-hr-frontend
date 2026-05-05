@@ -1,0 +1,12 @@
+/* FindJobsPage */
+
+.selected-job-description h4 {
+  font-size: 17px;
+  margin-bottom: 4px;
+}
+
+.selected-job-description .job-details.stacked {
+  display: grid;
+  gap: 4px;
+  margin: 10px 0 14px;
+}
