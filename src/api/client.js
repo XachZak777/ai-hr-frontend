@@ -60,14 +60,33 @@ export async function request(path, { headers: extra = {}, ...options } = {}) {
   return handleResponse(res);
 }
 
+const USER_MESSAGES = {
+  400: 'Please check your input and try again.',
+  401: 'Your session has expired. Please sign in again.',
+  403: "You don't have permission to perform this action.",
+  404: 'The requested item could not be found.',
+  409: 'This action conflicts with existing data.',
+  422: 'Please check your input and try again.',
+  429: 'Too many requests. Please wait a moment and try again.',
+  500: 'Something went wrong on our end. Please try again.',
+  503: 'Service temporarily unavailable. Please try again shortly.',
+};
+
+function extractMessage(body, status) {
+  const raw = body?.detail ?? body?.message;
+  if (typeof raw === 'string' && raw.length > 0 && raw.length <= 160 && !/^HTTP \d/.test(raw) && status < 500) {
+    return raw;
+  }
+  return USER_MESSAGES[status] ?? 'An unexpected error occurred. Please try again.';
+}
+
 async function handleResponse(res) {
   if (res.status === 204) return null;
   const isJson = res.headers.get('Content-Type')?.includes('application/json');
   const body = isJson ? await res.json() : await res.text();
   if (!res.ok) {
-    // Backend uses RFC 7807 ProblemDetail — prefer detail, fall back to message
-    const message = body?.detail ?? body?.message ?? `HTTP ${res.status}`;
-    throw Object.assign(new Error(message), { status: res.status, body });
+    const message = extractMessage(typeof body === 'object' ? body : {}, res.status);
+    throw Object.assign(new Error(message), { status: res.status });
   }
   return body;
 }
