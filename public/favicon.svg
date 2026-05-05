@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="faviconGradient" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1024b8"/>
+      <stop offset=".55" stop-color="#005ec6"/>
+      <stop offset="1" stop-color="#16b69a"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#ffffff"/>
+  <path fill="url(#faviconGradient)" d="M31.8 8.7c4.9-1.2 8.8 2.7 12.3 6.1l11.6 11.4c6.4 6.2 6.6 16.2.5 22.6l-8 8.3c-2.9 3-7.8 3.4-11.1.9L12.2 38.8l-5.4 5.3a3.5 3.5 0 0 1-5 0 3.5 3.5 0 0 1 0-5l8.8-8.6-5.1-5a3.6 3.6 0 0 1-.1-5.1l7.8-8.1a3.6 3.6 0 0 1 5.2-.1l4.3 4.2 4.2-4.3c1.5-1.6 3-2.8 4.9-3.4Z"/>
+  <path fill="#fff" d="m20 21.6 7.3 7.1a5.5 5.5 0 0 0 7.8-.1l2.8-2.9a5.5 5.5 0 0 0-.1-7.8l-4.7-4.6a3.5 3.5 0 0 0-5 .1L20 21.6Z"/>
+  <path fill="#fff" d="M37.2 22.7c6.3 6.1 8.2 15.1 5.2 23.1l-.9 2.3c-.3.7-1.2 1-1.8.5L18.8 32.5a1.3 1.3 0 0 1-.2-1.9l10.8-11.1c.8-.8 2.1-.8 2.9-.1l4.9 3.3Z"/>
+  <rect width="14" height="14" x="15" y="34" fill="#005ec6" rx="3" transform="rotate(-45 22 41)"/>
+  <rect width="7" height="7" x="21.3" y="19.5" fill="#1024b8" rx="2" transform="rotate(-45 24.8 23)"/>
+</svg>

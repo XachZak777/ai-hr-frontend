@@ -1,0 +1,8 @@
+/* LoginPage */
+
+.login-page .role-picker {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 14px;
+}

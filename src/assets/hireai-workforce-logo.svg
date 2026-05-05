@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 410 130" role="img" aria-labelledby="title desc">
+  <title id="title">HireAI Workforce</title>
+  <desc id="desc">HireAI Workforce logo with a profile icon and robot mark.</desc>
+  <defs>
+    <linearGradient id="aiGradient" x1="305" y1="20" x2="386" y2="90" gradientUnits="userSpaceOnUse">
+      <stop offset="1" stop-color="#18b789"/>
+    </linearGradient>
+  </defs>
+
+  <g fill="none" fill-rule="evenodd">
+    <text x="108" y="89" fill="#24328b" font-family="Inter, Arial, Helvetica, sans-serif" font-size="95" font-weight="800" letter-spacing="-4">Hire</text>
+    <circle cx="186.4" cy="28.7" r="8.7" fill="#ff3445"/>
+    <text x="299" y="89" fill="url(#aiGradient)" font-family="Inter, Arial, Helvetica, sans-serif" font-size="95" font-weight="800" letter-spacing="-5">AI</text>
+  </g>
+</svg>
