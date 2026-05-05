@@ -64,9 +64,17 @@ export function getMyCv() {
 }
 
 /**
- * Recruiter / Admin: fetch CV for a specific candidate.
+ * Recruiter / Admin: fetch CV by candidate profile ID.
  * @returns {Promise<CvResponse>}
  */
-export function getCvByCandidate(candidateId) {
-  return request(`/api/v1/candidates/cv/${candidateId}`);
+export function getCvByCandidate(candidateProfileId) {
+  return request(`/api/v1/candidates/cv/${candidateProfileId}`);
+}
+
+/**
+ * Recruiter / Admin: fetch CV by candidate auth user ID.
+ * @returns {Promise<CvResponse>}
+ */
+export function getCvByUserId(candidateUserId) {
+  return request(`/api/v1/candidates/cv/user/${candidateUserId}`);
 }

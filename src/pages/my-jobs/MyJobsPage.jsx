@@ -4,7 +4,7 @@ import { DashboardSection, PageTitle, Tabs } from '../../components/CommonBlocks
 import { listMyApplications, listSavedJobs, unsaveJob, getJob } from '../../api/jobs';
 import { notify } from '../../utils/notifications';
 
-const EXPERIENCE_LABEL = { JUNIOR: 'Junior', MID: 'Mid', MID_LEVEL: 'Mid', SENIOR: 'Senior' };
+const EXPERIENCE_LABEL = { ENTRY: 'Entry', MID: 'Mid', SENIOR: 'Senior', LEAD: 'Lead' };
 
 function experienceLevelLabel(level) {
   return EXPERIENCE_LABEL[level] ?? '';

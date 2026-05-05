@@ -41,6 +41,14 @@ export function deleteCompany(id) {
 }
 
 /**
+ * Get the company owned by the authenticated recruiter.
+ * @returns {Promise<CompanyDto>}
+ */
+export function getMyCompany() {
+  return request('/api/v1/companies/my');
+}
+
+/**
  * Paginated list of all companies.
  * @param {{ page?: number, size?: number }} params
  * @returns {Promise<Page<CompanyDto>>}

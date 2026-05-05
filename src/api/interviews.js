@@ -1,12 +1,14 @@
 import { request, buildQuery } from './client';
 
 /**
- * Recruiter / Admin: schedule an AI-driven interview for an application.
- * @param {ScheduleInterviewRequest} body
+ * Recruiter: schedule an AI-driven interview for an application.
+ * @param {ScheduleInterviewRequest} body — must include candidateEmail (auth user email)
+ * @param {string} [jobTitle] — appended as ?jobTitle= query param
  * @returns {Promise<InterviewDto>} 201
  */
-export function scheduleInterview(body) {
-  return request('/api/v1/interviews', {
+export function scheduleInterview(body, jobTitle) {
+  const qs = jobTitle ? `?jobTitle=${encodeURIComponent(jobTitle)}` : '';
+  return request(`/api/v1/interviews${qs}`, {
     method: 'POST',
     body: JSON.stringify(body),
   });
@@ -28,28 +30,56 @@ export function getInterviewMessages(id) {
 }
 
 /**
- * Candidate: submit an answer to the current AI question.
- * Returns the next AI question, or final score + feedback when complete.
- * @param {number|string} id  interview ID
- * @param {string} answer
- * @returns {Promise<AiTurnResponse>}
- *   AiTurnResponse: { aiMessage, interviewComplete, score, feedback }
- *   When interviewComplete is true, score (0–100) and feedback are populated.
+ * Candidate: start a scheduled text interview — transitions it to IN_PROGRESS.
+ * @param {number|string} id
+ * @returns {Promise<AiTurnResponse>} { aiMessage, interviewComplete, score, feedback }
  */
-export function answerInterview(id, answer) {
-  return request(`/api/v1/interviews/${id}/answer`, {
+export function startInterview(id) {
+  return request(`/api/v1/interviews/${id}/start`, { method: 'POST' });
+}
+
+/**
+ * Candidate: submit a text answer to the current AI question.
+ * @param {number|string} id
+ * @param {string} answer
+ * @param {string} [jobTitle] — appended as ?jobTitle= query param
+ * @returns {Promise<AiTurnResponse>} { aiMessage, interviewComplete, score, feedback }
+ */
+export function answerInterview(id, answer, jobTitle) {
+  const qs = jobTitle ? `?jobTitle=${encodeURIComponent(jobTitle)}` : '';
+  return request(`/api/v1/interviews/${id}/answer${qs}`, {
     method: 'POST',
     body: JSON.stringify({ answer }),
   });
 }
 
 /**
- * Candidate / Recruiter: start a scheduled interview — transitions it to IN_PROGRESS.
+ * Candidate: start a scheduled voice interview.
+ * Returns the initial AI audio as base64 along with the text transcript.
  * @param {number|string} id
- * @returns {Promise<AiTurnResponse>}
+ * @returns {Promise<VoiceTurnResponse>}
+ *   { aiMessage, audioBase64, audioContentType, interviewComplete, score, feedback, transcript }
  */
-export function startInterview(id) {
-  return request(`/api/v1/interviews/${id}/start`, { method: 'POST' });
+export function startVoiceInterview(id) {
+  return request(`/api/v1/interviews/${id}/voice/start`, { method: 'POST' });
+}
+
+/**
+ * Candidate: submit an audio answer for a voice interview.
+ * Sends multipart/form-data with the audio blob; receives the next AI audio + message.
+ * @param {number|string} id
+ * @param {Blob} audioBlob — recorded audio from MediaRecorder
+ * @param {string} [jobTitle] — appended as ?jobTitle= query param
+ * @returns {Promise<VoiceTurnResponse>}
+ */
+export function answerVoiceInterview(id, audioBlob, jobTitle) {
+  const form = new FormData();
+  form.append('audio', audioBlob, 'answer.webm');
+  const qs = jobTitle ? `?jobTitle=${encodeURIComponent(jobTitle)}` : '';
+  return request(`/api/v1/interviews/${id}/voice/answer${qs}`, {
+    method: 'POST',
+    body: form,
+  });
 }
 
 /**

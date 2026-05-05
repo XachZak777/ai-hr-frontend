@@ -5,24 +5,23 @@ import { notify } from '../utils/notifications';
 import { getDisplayName } from '../utils/authState';
 
 const adminLinks = [
-  ['/', 'Home'],
   ['/admin-dashboard', 'Dashboard'],
   ['/admin-schedule', 'Schedule'],
 ];
 
 const employerLinks = [
-  ['/', 'Home'],
   ['/employer-dashboard', 'Dashboard'],
-  ['/post-new-job', 'Post Job'],
+  ['/employer-jobs', 'My Jobs'],
+  ['/employer-candidates', 'Applications'],
   ['/employer-schedule', 'Schedule'],
+  ['/employer-ai', 'AI Agent'],
+  ['/profile', 'Account'],
 ];
 
 const employeeLinks = [
-  ['/', 'Home'],
   ['/employee-dashboard', 'Dashboard'],
-  ['/employee-schedule', 'Schedule'],
   ['/find-jobs', 'Find Jobs'],
-  ['/my-jobs', 'My Jobs'],
+  ['/employee-schedule', 'Interviews'],
 ];
 
 const linksByRole = { admin: adminLinks, employer: employerLinks, employee: employeeLinks };
@@ -61,7 +60,12 @@ export default function TopNav({ onLogout, userRole = 'employer' }) {
       </button>
       <div className="nav-links">
         {links.map(([to, label]) => (
-          <NavLink key={to} to={to} className={({ isActive }) => `tab-link ${isActive ? 'active' : ''}`}>
+          <NavLink
+            key={to}
+            to={to}
+            end
+            className={({ isActive }) => `tab-link ${isActive ? 'active' : ''}`}
+          >
             {label}
           </NavLink>
         ))}

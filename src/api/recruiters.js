@@ -32,6 +32,23 @@ export function updateRecruiter(id, body) {
 }
 
 /**
+ * Get the recruiter profile for the authenticated user.
+ * @returns {Promise<RecruiterDto>}
+ */
+export function getMyRecruiter() {
+  return request('/api/v1/recruiters/me');
+}
+
+/**
+ * Get a recruiter profile by auth user ID.
+ * @param {number|string} userId
+ * @returns {Promise<RecruiterDto>}
+ */
+export function getRecruiterByUserId(userId) {
+  return request(`/api/v1/recruiters/user/${userId}`);
+}
+
+/**
  * Admin: list recruiters, optionally filtered by company.
  * @param {{ companyId?: number, page?: number, size?: number }} params
  * @returns {Promise<Page<RecruiterDto>>}

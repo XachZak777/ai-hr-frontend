@@ -1,29 +1,22 @@
 import { useEffect, useState } from 'react';
 import { DashboardSection, EventCards, PageTitle } from '../../components/CommonBlocks';
 import { listMyInterviews } from '../../api/interviews';
+import { getJob } from '../../api/jobs';
 
-function adaptInterview(interview) {
+function adaptInterview(interview, jobTitleMap) {
   const scheduledAt = interview.scheduledAt ? new Date(interview.scheduledAt) : null;
   const status = interview.status?.toLowerCase() ?? 'scheduled';
+  const jobTitle = jobTitleMap[interview.jobId];
   return {
-    title: `Interview #${interview.id}`,
+    title: jobTitle ?? 'Interview',
     time: scheduledAt ? scheduledAt.toLocaleString() : 'Time not set',
-    metaA: `Job #${interview.jobId ?? '—'}`,
+    metaA: interview.durationMinutes ? `${interview.durationMinutes} min` : '',
     metaB: '',
     status,
     primary: status === 'completed' ? 'View Results' : 'Join Interview',
     primaryLink: `/interview/${interview.id}`,
   };
 }
-
-const checklistItems = [
-  ['Research company background and culture', true],
-  ['Review job description and requirements', true],
-  ['Prepare examples of past projects and achievements', false],
-  ['Prepare questions to ask the interviewer', false],
-  ['Test your internet connection and equipment', false],
-  ['Prepare professional attire', false],
-];
 
 const tips = [
   ['Before the Interview', ['Research the company thoroughly', 'Practice your elevator pitch', 'Prepare specific examples', 'Test your tech setup (for virtual)']],
@@ -33,12 +26,24 @@ const tips = [
 
 export default function EmployeeSchedulePage() {
   const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
   const upcomingEvents = events.filter((e) => e.status !== 'rejected' && e.status !== 'cancelled' && e.status !== 'completed');
 
   useEffect(() => {
     listMyInterviews({ size: 50 })
-      .then((page) => setEvents((page.content ?? []).map(adaptInterview)))
-      .catch(() => {});
+      .then(async (page) => {
+        const list = page.content ?? [];
+        const uniqueJobIds = [...new Set(list.map((i) => i.jobId).filter(Boolean))];
+        const jobTitleMap = {};
+        await Promise.allSettled(
+          uniqueJobIds.map((id) =>
+            getJob(id).then((job) => { jobTitleMap[id] = job.title; }).catch(() => {})
+          )
+        );
+        setEvents(list.map((i) => adaptInterview(i, jobTitleMap)));
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   return (
@@ -48,7 +53,9 @@ export default function EmployeeSchedulePage() {
         subtitle="Interviews are assigned by recruiters. You can join scheduled calls below."
       />
       <InterviewStats events={events} upcomingCount={upcomingEvents.length} />
-      {events.length === 0 ? (
+      {loading ? (
+        <p className="muted">Loading your interviews...</p>
+      ) : events.length === 0 ? (
         <div className="empty-state">
           <h4>No interviews scheduled</h4>
           <p className="muted">When a recruiter schedules an interview with you, it will appear here.</p>
@@ -56,7 +63,6 @@ export default function EmployeeSchedulePage() {
       ) : (
         <EventCards events={events} readOnly />
       )}
-      <ChecklistSection />
       <TipsSection />
     </main>
   );
@@ -78,21 +84,6 @@ function InterviewStats({ events, upcomingCount }) {
         </div>
       ))}
     </div>
-  );
-}
-
-function ChecklistSection() {
-  return (
-    <DashboardSection title="Interview Preparation Checklist">
-      <div className="checklist">
-        {checklistItems.map(([label, checked]) => (
-          <label key={label} className="checklist-item">
-            <input type="checkbox" defaultChecked={checked} />
-            <span>{label}</span>
-          </label>
-        ))}
-      </div>
-    </DashboardSection>
   );
 }
 

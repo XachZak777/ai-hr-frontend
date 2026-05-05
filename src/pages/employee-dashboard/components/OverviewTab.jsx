@@ -7,12 +7,26 @@ export default function OverviewTab({ applications, profileCompletion, loading, 
   return (
     <>
       <DashboardSection>
-        <OverviewGrid
-          applications={applications}
-          profileCompletion={profileCompletion}
-          navigate={navigate}
-        />
+        <div className="overview-grid">
+          <div className="profile-completion">
+            <h3>Profile Completion</h3>
+            <div className="progress-bar">
+              <div className="progress-fill" style={{ width: `${profileCompletion}%` }} />
+            </div>
+            <p className="muted">{profileCompletion}% complete</p>
+            <button className="btn-light" onClick={() => navigate('/profile')}>Complete Profile</button>
+          </div>
+          <div className="quick-stats">
+            <h3>Activity</h3>
+            <ul className="quick-list">
+              <li><strong>{applications.length}</strong> active application{applications.length !== 1 ? 's' : ''}</li>
+              <li><strong>{applications.filter((a) => a.status === 'SHORTLISTED').length}</strong> shortlisted</li>
+              <li><strong>{applications.filter((a) => a.status === 'HIRED').length}</strong> hired</li>
+            </ul>
+          </div>
+        </div>
       </DashboardSection>
+
       <DashboardSection title="Recent Applications">
         {loading ? (
           <p className="muted">Loading...</p>
@@ -21,28 +35,6 @@ export default function OverviewTab({ applications, profileCompletion, loading, 
         )}
       </DashboardSection>
     </>
-  );
-}
-
-function OverviewGrid({ applications, profileCompletion, navigate }) {
-  return (
-    <div className="overview-grid">
-      <div className="profile-completion">
-        <h3>Profile Completion</h3>
-        <div className="progress-bar">
-          <div className="progress-fill" style={{ width: `${profileCompletion}%` }}></div>
-        </div>
-        <p className="muted">{profileCompletion}% complete</p>
-        <button className="btn-light" onClick={() => navigate('/profile')}>Complete Profile</button>
-      </div>
-      <div className="quick-stats">
-        <h3>Your Opportunities</h3>
-        <ul className="quick-list">
-          <li><strong>{applications.length} active applications</strong> currently tracked</li>
-          <li><strong>{profileCompletion}% profile completion</strong> improves match quality</li>
-        </ul>
-      </div>
-    </div>
   );
 }
 
@@ -62,7 +54,7 @@ function RecentApplications({ applications, onViewAll }) {
         {applications.slice(0, 3).map((app) => <ApplicationCard key={app.id} app={app} />)}
       </div>
       {applications.length > 3 && (
-        <button className="view-all link-button" onClick={onViewAll}>
+        <button className="view-all link-button" style={{ marginTop: 12 }} onClick={onViewAll}>
           View all {applications.length} applications →
         </button>
       )}
@@ -70,18 +62,23 @@ function RecentApplications({ applications, onViewAll }) {
   );
 }
 
+const STATUS_BADGE = {
+  PENDING: '',
+  REVIEWED: 'review',
+  SHORTLISTED: 'shortlisted',
+  REJECTED: 'rejected',
+  HIRED: 'hired',
+};
+
 function ApplicationCard({ app }) {
   return (
     <div className="application-card">
       <div className="app-header">
         <div>
           <h4>Job #{app.jobId}</h4>
-          <p className="muted">Application ID: {app.id}</p>
+          <p className="muted small">{new Date(app.appliedAt).toLocaleDateString()}</p>
         </div>
-        <span className="status-badge review">{app.status}</span>
-      </div>
-      <div className="app-footer">
-        <span className="muted">{new Date(app.appliedAt).toLocaleDateString()}</span>
+        <span className={`status-badge ${STATUS_BADGE[app.status] ?? ''}`}>{app.status}</span>
       </div>
     </div>
   );

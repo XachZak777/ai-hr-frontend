@@ -43,7 +43,7 @@ const footerGroups = [
   },
 ];
 
-export default function HomePage({ isLoggedIn = false, onLogin }) {
+export default function HomePage({ onLogin }) {
   const navigate = useNavigate();
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [isLoginModalClosing, setIsLoginModalClosing] = useState(false);
@@ -102,14 +102,12 @@ export default function HomePage({ isLoggedIn = false, onLogin }) {
 
   return (
     <main className="page home">
-      {!isLoggedIn && (
-        <HomeHeader
-          navigate={navigate}
-          onScrollTo={handleScrollTo}
-          onOpenLogin={openLoginModal}
-          onOpenSignup={openSignupModal}
-        />
-      )}
+      <HomeHeader
+        navigate={navigate}
+        onScrollTo={handleScrollTo}
+        onOpenLogin={openLoginModal}
+        onOpenSignup={openSignupModal}
+      />
       <Hero onOpenSignup={openSignupModal} onOpenLogin={openLoginModal} />
       <CardGridSection
         className="why-choose"

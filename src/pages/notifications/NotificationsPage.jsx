@@ -57,23 +57,35 @@ export default function NotificationsPage() {
         subtitle="Choose which notifications you want to receive"
       />
       <DashboardSection title="Email Notifications">
-        {loading ? (
-          <p className="muted">Loading preferences...</p>
-        ) : (
-          <div className="preference-list">
-            {NOTIFICATION_TYPES.map((type) => (
-              <label key={type} className="preference-item">
-                <span>{NOTIFICATION_LABELS[type]}</span>
-                <input
-                  type="checkbox"
-                  checked={preferences[type] ?? true}
-                  disabled={updating === type}
-                  onChange={() => handleToggle(type)}
-                />
-              </label>
-            ))}
-          </div>
-        )}
+        <div className="preference-list">
+          {loading
+            ? NOTIFICATION_TYPES.map((type) => (
+                <div key={type} className="preference-item">
+                  <span className="skeleton-line" style={{ width: '52%', height: 16 }} />
+                  <span className="skeleton-toggle" />
+                </div>
+              ))
+            : NOTIFICATION_TYPES.map((type) => (
+                <div key={type} className={`preference-item${updating === type ? ' updating' : ''}`}>
+                  <div>
+                    <span>{NOTIFICATION_LABELS[type]}</span>
+                    {updating === type && (
+                      <span className="muted small" style={{ marginLeft: 8 }}>Saving…</span>
+                    )}
+                  </div>
+                  <label className="toggle-switch">
+                    <input
+                      type="checkbox"
+                      checked={preferences[type] ?? true}
+                      disabled={updating === type}
+                      onChange={() => handleToggle(type)}
+                    />
+                    <span className="toggle-track" />
+                  </label>
+                </div>
+              ))
+          }
+        </div>
       </DashboardSection>
     </main>
   );

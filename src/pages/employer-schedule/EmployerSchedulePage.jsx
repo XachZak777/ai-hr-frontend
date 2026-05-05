@@ -1,23 +1,45 @@
 import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { DashboardSection, PageTitle, QuickStatsRow } from '../../components/CommonBlocks';
 import { notify } from '../../utils/notifications';
 import { listMyJobs, listApplicationsForJob } from '../../api/jobs';
 import { scheduleInterview, listInterviewsByJob } from '../../api/interviews';
 
 export default function EmployerSchedulePage() {
+  const { state: navState } = useLocation();
   const [jobs, setJobs] = useState([]);
   const [selectedJobId, setSelectedJobId] = useState('');
   const [applications, setApplications] = useState([]);
   const [interviews, setInterviews] = useState([]);
   const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({ applicationId: '', scheduledAt: '', durationMinutes: 45 });
+  const [formData, setFormData] = useState({
+    applicationId: '',
+    candidateEmail: '',
+    scheduledAt: '',
+    durationMinutes: 45,
+  });
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [loadingData, setLoadingData] = useState(false);
 
   useEffect(() => {
     listMyJobs({ size: 50 })
-      .then((page) => setJobs(page.content ?? []))
+      .then((page) => {
+        const list = page.content ?? [];
+        setJobs(list);
+        // Pre-select job if navigated from CandidatesTab or JobPostsTab
+        if (navState?.jobId) {
+          setSelectedJobId(String(navState.jobId));
+          if (navState.applicationId || navState.candidateEmail) {
+            setFormData((prev) => ({
+              ...prev,
+              applicationId: navState.applicationId ? String(navState.applicationId) : prev.applicationId,
+              candidateEmail: navState.candidateEmail ?? prev.candidateEmail,
+            }));
+            setShowForm(true);
+          }
+        }
+      })
       .catch(() => notify('Failed to load jobs.', 'error'));
   }, []);
 
@@ -41,11 +63,20 @@ export default function EmployerSchedulePage() {
     if (errors[field]) setErrors((e) => ({ ...e, [field]: '' }));
   };
 
+  const handleApplicationSelect = (applicationId) => {
+    updateField('applicationId', applicationId);
+    const app = applications.find((a) => String(a.id) === String(applicationId));
+    if (app?.candidateEmail) {
+      setFormData((prev) => ({ ...prev, applicationId, candidateEmail: app.candidateEmail }));
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const nextErrors = {};
     if (!selectedJobId) nextErrors.job = 'Select a job first';
     if (!formData.applicationId) nextErrors.applicationId = 'Select an application';
+    if (!formData.candidateEmail.trim()) nextErrors.candidateEmail = 'Candidate email is required';
     if (!formData.scheduledAt) nextErrors.scheduledAt = 'Date and time are required';
     if (!formData.durationMinutes || Number(formData.durationMinutes) < 1) nextErrors.durationMinutes = 'Enter a valid duration';
     setErrors(nextErrors);
@@ -54,17 +85,23 @@ export default function EmployerSchedulePage() {
     const selectedApp = applications.find((a) => String(a.id) === String(formData.applicationId));
     if (!selectedApp) { notify('Selected application not found.', 'error'); return; }
 
+    const selectedJob = jobs.find((j) => String(j.id) === String(selectedJobId));
+
     setSubmitting(true);
     try {
-      const created = await scheduleInterview({
-        applicationId: Number(formData.applicationId),
-        candidateId: selectedApp.candidateId,
-        jobId: Number(selectedJobId),
-        scheduledAt: new Date(formData.scheduledAt).toISOString(),
-        durationMinutes: Number(formData.durationMinutes),
-      });
+      const created = await scheduleInterview(
+        {
+          applicationId: Number(formData.applicationId),
+          candidateId: selectedApp.candidateId,
+          candidateEmail: formData.candidateEmail.trim(),
+          jobId: Number(selectedJobId),
+          scheduledAt: new Date(formData.scheduledAt).toISOString().replace(/\.\d{3}Z$/, ''),
+          durationMinutes: Number(formData.durationMinutes),
+        },
+        selectedJob?.title,
+      );
       setInterviews((prev) => [created, ...prev]);
-      setFormData({ applicationId: '', scheduledAt: '', durationMinutes: 45 });
+      setFormData({ applicationId: '', candidateEmail: '', scheduledAt: '', durationMinutes: 45 });
       setShowForm(false);
       setErrors({});
       notify('Interview scheduled successfully.', 'success');
@@ -114,17 +151,28 @@ export default function EmployerSchedulePage() {
               <label>Application</label>
               <select
                 value={formData.applicationId}
-                onChange={(e) => updateField('applicationId', e.target.value)}
+                onChange={(e) => handleApplicationSelect(e.target.value)}
                 className={errors.applicationId ? 'input-error' : ''}
               >
                 <option value="">— Select applicant —</option>
                 {applications.map((app) => (
                   <option key={app.id} value={app.id}>
-                    Application #{app.id} — {app.status}
+                    {app.candidateEmail || `Applicant ${app.id}`} — {app.status}
                   </option>
                 ))}
               </select>
               {errors.applicationId && <span className="error-text">{errors.applicationId}</span>}
+            </div>
+            <div className="form-group">
+              <label>Candidate Email</label>
+              <input
+                type="email"
+                value={formData.candidateEmail}
+                onChange={(e) => updateField('candidateEmail', e.target.value)}
+                placeholder="candidate@example.com"
+                className={errors.candidateEmail ? 'input-error' : ''}
+              />
+              {errors.candidateEmail && <span className="error-text">{errors.candidateEmail}</span>}
             </div>
             <div className="form-row">
               <div className="form-group">
@@ -167,7 +215,12 @@ export default function EmployerSchedulePage() {
         <DashboardSection title="Scheduled Interviews">
           <div className="applied-jobs-list">
             {interviews.map((interview) => (
-              <InterviewCard key={interview.id} interview={interview} />
+              <InterviewCard
+                key={interview.id}
+                interview={interview}
+                jobTitle={jobs.find((j) => String(j.id) === String(selectedJobId))?.title}
+                applications={applications}
+              />
             ))}
           </div>
         </DashboardSection>
@@ -190,22 +243,32 @@ export default function EmployerSchedulePage() {
   );
 }
 
-function InterviewCard({ interview }) {
+const INTERVIEW_STATUS_BADGE = {
+  SCHEDULED: 'new',
+  IN_PROGRESS: 'interviewing',
+  COMPLETED: 'active',
+  CANCELLED: 'rejected',
+};
+
+function InterviewCard({ interview, jobTitle, applications }) {
   const scheduledAt = interview.scheduledAt
     ? new Date(interview.scheduledAt).toLocaleString()
     : 'TBD';
+  const candidateEmail = applications.find((a) => String(a.id) === String(interview.applicationId))?.candidateEmail;
+  const badgeClass = INTERVIEW_STATUS_BADGE[interview.status] ?? '';
+
   return (
     <article className="applied-job-card">
-      <div>
-        <div className="app-header">
-          <h4>Interview #{interview.id}</h4>
-          <span className="status-badge review">{interview.status}</span>
+      <div className="app-header">
+        <div>
+          <h4>{jobTitle ?? 'Interview'}</h4>
+          {candidateEmail && <p className="muted small">{candidateEmail}</p>}
         </div>
-        <div className="job-details">
-          <span className="detail">{scheduledAt}</span>
-          {interview.durationMinutes && <span className="detail">{interview.durationMinutes} min</span>}
-        </div>
-        <p className="muted small">Application #{interview.applicationId}</p>
+        <span className={`status-badge ${badgeClass}`}>{interview.status}</span>
+      </div>
+      <div className="job-details">
+        <span className="detail">{scheduledAt}</span>
+        {interview.durationMinutes && <span className="detail">{interview.durationMinutes} min</span>}
       </div>
     </article>
   );

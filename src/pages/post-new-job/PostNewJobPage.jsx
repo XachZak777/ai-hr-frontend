@@ -5,7 +5,7 @@ import { notify } from '../../utils/notifications';
 import { validateRequired, validateMinLength } from '../../utils/validation';
 import { createJob, publishJob } from '../../api/jobs';
 import { getRecruiter, createRecruiter, updateRecruiter } from '../../api/recruiters';
-import { createCompany } from '../../api/companies';
+import { createCompany, getMyCompany } from '../../api/companies';
 import { getAuthUser, updateAuthUser } from '../../utils/authState';
 
 const EXPERIENCE_LEVEL = { Entry: 'ENTRY', Mid: 'MID', Senior: 'SENIOR', Lead: 'LEAD' };
@@ -79,11 +79,20 @@ export default function PostNewJobPage() {
 
     setCreatingCompany(true);
     try {
-      const company = await createCompany({
-        companyName: companyForm.companyName.trim(),
-        industry: companyForm.industry.trim(),
-        website: companyForm.website.trim() || undefined,
-      });
+      let company;
+      try {
+        company = await createCompany({
+          companyName: companyForm.companyName.trim(),
+          industry: companyForm.industry.trim(),
+          website: companyForm.website.trim() || undefined,
+        });
+      } catch (err) {
+        if (err.status === 409) {
+          company = await getMyCompany();
+        } else {
+          throw err;
+        }
+      }
 
       const authUser = getAuthUser();
       const positionTitle = companyForm.positionTitle.trim();
@@ -101,7 +110,7 @@ export default function PostNewJobPage() {
 
       setCompanyId(company.id);
       updateAuthUser({ companyId: company.id });
-      notify(`Company "${company.companyName}" created successfully.`, 'success');
+      notify(`Company "${company.companyName}" linked successfully.`, 'success');
     } catch (err) {
       notify(err.message ?? 'Failed to create company.', 'error');
     } finally {

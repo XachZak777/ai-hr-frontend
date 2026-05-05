@@ -14,22 +14,17 @@ export function PageTitle({ title, subtitle, actions }) {
 }
 
 export function Tabs({ tabs, activeTab, onChange }) {
-  const navigate = useNavigate();
-
   return (
-    <div className="tabs-with-home">
-      <div className="tabs">
-        {tabs.map((tab) => (
-          <span
-            key={tab}
-            className={activeTab === tab ? 'active' : ''}
-            onClick={() => onChange(tab)}
-          >
-            {tab}
-          </span>
-        ))}
-      </div>
-      <button className="btn-light tabs-home-btn" onClick={() => navigate('/')}>Home</button>
+    <div className="tabs">
+      {tabs.map((tab) => (
+        <span
+          key={tab}
+          className={activeTab === tab ? 'active' : ''}
+          onClick={() => onChange(tab)}
+        >
+          {tab}
+        </span>
+      ))}
     </div>
   );
 }
