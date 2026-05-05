@@ -20,6 +20,14 @@ export function getCandidate(id) {
 }
 
 /**
+ * Get the candidate profile for the authenticated user.
+ * @returns {Promise<CandidateDto>}
+ */
+export function getMyCandidate() {
+  return request('/api/v1/candidates/me');
+}
+
+/**
  * @param {number|string} id
  * @param {Partial<CandidateDto>} body
  * @returns {Promise<CandidateDto>}

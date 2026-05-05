@@ -7,6 +7,7 @@ import { navigateAfterLogin } from '../../utils/navigation';
 import { validateEmail } from '../../utils/validation';
 import { login } from '../../api/auth';
 import { FRONTEND_ROLE, parseAuthResponse, setAuthUser } from '../../utils/authState';
+import { resolveProfile } from '../../utils/resolveProfile';
 
 export default function LoginPage({ onLogin }) {
   const [email, setEmail] = useState('');
@@ -31,6 +32,7 @@ export default function LoginPage({ onLogin }) {
       const data = await login({ email, password });
       setAuthUser(parseAuthResponse(data));
       const role = FRONTEND_ROLE[data.role];
+      await resolveProfile(role);
       onLogin(role);
       navigateAfterLogin(role, navigate);
     } catch (err) {

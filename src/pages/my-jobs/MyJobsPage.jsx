@@ -120,7 +120,7 @@ export default function MyJobsPage() {
 }
 
 function SavedJobCard({ saved, job, navigate, onRemove }) {
-  const title = job?.title ?? `Job #${saved.jobId}`;
+  const title = job?.title ?? 'Job listing';
   const location = job?.location ?? '';
   const experience = experienceLevelLabel(job?.experienceLevel);
   const salary = formatSalary(job?.salaryMin, job?.salaryMax);
@@ -149,7 +149,7 @@ function SavedJobCard({ saved, job, navigate, onRemove }) {
 
 function AppliedJobCard({ application, job }) {
   const [showWithdrawInfo, setShowWithdrawInfo] = useState(false);
-  const title = job?.title ?? `Job #${application.jobId}`;
+  const title = job?.title ?? 'Job listing';
   const location = job?.location ?? '';
   const experience = experienceLevelLabel(job?.experienceLevel);
   const salary = formatSalary(job?.salaryMin, job?.salaryMax);

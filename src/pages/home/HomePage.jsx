@@ -7,6 +7,7 @@ import { navigateAfterLogin } from '../../utils/navigation';
 import { passwordHelpText, validateEmail, validatePassword } from '../../utils/validation';
 import { login, register } from '../../api/auth';
 import { BACKEND_ROLE, FRONTEND_ROLE, parseAuthResponse, setAuthUser } from '../../utils/authState';
+import { resolveProfile } from '../../utils/resolveProfile';
 
 const features = [
   ['AI-Powered Matching', 'Advanced algorithms match candidates with positions based on skills, experience, and cultural fit.'],
@@ -65,6 +66,7 @@ export default function HomePage({ onLogin }) {
       const data = await login({ email, password });
       setAuthUser(parseAuthResponse(data));
       const role = FRONTEND_ROLE[data.role];
+      await resolveProfile(role);
       onLogin?.(role);
       closeLoginModal();
       notify('Signed in successfully.', 'success');

@@ -120,10 +120,7 @@ function CandidateCard({ application, jobId, jobTitle, onStatusUpdate }) {
       <div className="candidate-card-main">
         <div className="app-header">
           <div>
-            <h4>Application #{application.id}</h4>
-            {application.candidateEmail && (
-              <p className="muted small">{application.candidateEmail}</p>
-            )}
+            <h4>{application.candidateEmail || 'Applicant'}</h4>
             <p className="muted small">
               Applied {new Date(application.appliedAt ?? application.createdAt).toLocaleDateString()}
             </p>

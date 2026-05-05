@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { DashboardSection } from '../../../components/CommonBlocks';
 
-export default function OverviewTab({ applications, profileCompletion, loading, setActiveTab }) {
+export default function OverviewTab({ applications, jobTitleMap = {}, profileCompletion, loading, setActiveTab }) {
   const navigate = useNavigate();
 
   return (
@@ -31,14 +31,14 @@ export default function OverviewTab({ applications, profileCompletion, loading, 
         {loading ? (
           <p className="muted">Loading...</p>
         ) : (
-          <RecentApplications applications={applications} onViewAll={() => setActiveTab('Applications')} />
+          <RecentApplications applications={applications} jobTitleMap={jobTitleMap} onViewAll={() => setActiveTab('Applications')} />
         )}
       </DashboardSection>
     </>
   );
 }
 
-function RecentApplications({ applications, onViewAll }) {
+function RecentApplications({ applications, jobTitleMap = {}, onViewAll }) {
   if (applications.length === 0) {
     return (
       <div className="empty-state compact-empty">
@@ -51,7 +51,7 @@ function RecentApplications({ applications, onViewAll }) {
   return (
     <>
       <div className="applications-list">
-        {applications.slice(0, 3).map((app) => <ApplicationCard key={app.id} app={app} />)}
+        {applications.slice(0, 3).map((app) => <ApplicationCard key={app.id} app={app} jobTitleMap={jobTitleMap} />)}
       </div>
       {applications.length > 3 && (
         <button className="view-all link-button" style={{ marginTop: 12 }} onClick={onViewAll}>
@@ -70,12 +70,13 @@ const STATUS_BADGE = {
   HIRED: 'hired',
 };
 
-function ApplicationCard({ app }) {
+function ApplicationCard({ app, jobTitleMap = {} }) {
+  const title = jobTitleMap[app.jobId];
   return (
     <div className="application-card">
       <div className="app-header">
         <div>
-          <h4>Job #{app.jobId}</h4>
+          <h4>{title ?? 'Loading...'}</h4>
           <p className="muted small">{new Date(app.appliedAt).toLocaleDateString()}</p>
         </div>
         <span className={`status-badge ${STATUS_BADGE[app.status] ?? ''}`}>{app.status}</span>

@@ -7,6 +7,7 @@ import { getUser, updateUser } from '../../api/users';
 import { getCandidate, updateCandidate, createCandidate } from '../../api/candidates';
 import { getRecruiter, updateRecruiter, createRecruiter } from '../../api/recruiters';
 import { getAuthUser, updateAuthUser } from '../../utils/authState';
+import { resolveProfile } from '../../utils/resolveProfile';
 
 const roleLabels = {
   admin: 'Administrator',
@@ -22,16 +23,23 @@ export default function ProfilePage({ userRole = 'employee' }) {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (!authUser?.profileId) return;
-    const fetcher = userRole === 'employee' ? getCandidate : getRecruiter;
-    fetcher(authUser.profileId)
-      .then((profile) => {
+    async function loadProfile() {
+      let profileId = authUser?.profileId;
+      if (!profileId) {
+        await resolveProfile(userRole);
+        profileId = getAuthUser()?.profileId;
+      }
+      if (!profileId) return;
+      const fetcher = userRole === 'employee' ? getCandidate : getRecruiter;
+      try {
+        const profile = await fetcher(profileId);
         setRoleProfile(profile);
         if (userRole === 'employer' && profile.companyId) {
           updateAuthUser({ companyId: profile.companyId });
         }
-      })
-      .catch(() => {});
+      } catch {}
+    }
+    loadProfile();
   }, [authUser?.profileId, userRole]);
 
   const handleUserChange = (field, value) => {

@@ -5,6 +5,7 @@ import { passwordHelpText, validateEmail, validatePassword, validateUserRole } f
 import { register } from '../../api/auth';
 import { BACKEND_ROLE, FRONTEND_ROLE, parseAuthResponse, setAuthUser } from '../../utils/authState';
 import { navigateAfterLogin } from '../../utils/navigation';
+import { resolveProfile } from '../../utils/resolveProfile';
 
 const initialFormData = {
   firstName: '',
@@ -60,6 +61,7 @@ export default function SignupPage({ onLogin }) {
       });
       setAuthUser(parseAuthResponse(data));
       const role = FRONTEND_ROLE[data.role];
+      await resolveProfile(role);
       onLogin(role);
       navigateAfterLogin(role, navigate);
     } catch (err) {

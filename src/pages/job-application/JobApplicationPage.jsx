@@ -103,9 +103,9 @@ function JobSummary({ job }) {
       <div className="job-application-summary">
         <h4>{job.title}</h4>
         <div className="job-details">
-          {job.location && <span className="detail">📍 {job.location}</span>}
-          {experience && <span className="detail">🎯 {experience}</span>}
-          <span className="detail">💰 {salary}/year</span>
+          {job.location && <span className="detail">{job.location}</span>}
+          {experience && <span className="detail">{experience}</span>}
+          <span className="detail">{salary}/year</span>
         </div>
         <p className="muted">{job.description}</p>
       </div>
