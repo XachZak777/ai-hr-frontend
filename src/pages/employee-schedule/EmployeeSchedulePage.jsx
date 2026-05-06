@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { DashboardSection, EventCards, PageTitle } from '../../components/CommonBlocks';
 import { listMyInterviews } from '../../api/interviews';
 import { getJob } from '../../api/jobs';
@@ -27,7 +27,10 @@ const tips = [
 export default function EmployeeSchedulePage() {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
-  const upcomingEvents = events.filter((e) => e.status !== 'rejected' && e.status !== 'cancelled' && e.status !== 'completed');
+  const upcomingEvents = useMemo(
+    () => events.filter((e) => e.status !== 'rejected' && e.status !== 'cancelled' && e.status !== 'completed'),
+    [events]
+  );
 
   useEffect(() => {
     listMyInterviews({ size: 50 })
@@ -46,13 +49,19 @@ export default function EmployeeSchedulePage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const stats = useMemo(() => [
+    ['Upcoming', upcomingEvents.length],
+    ['Confirmed', events.filter((e) => e.status === 'confirmed').length],
+    ['Completed', events.filter((e) => e.status === 'completed').length],
+  ], [events, upcomingEvents.length]);
+
   return (
     <main className="page dashboard">
       <PageTitle
         title="My Interview Schedule"
         subtitle="Interviews are assigned by recruiters. You can join scheduled calls below."
       />
-      <InterviewStats events={events} upcomingCount={upcomingEvents.length} />
+      <InterviewStats stats={stats} />
       {loading ? (
         <p className="muted">Loading your interviews...</p>
       ) : events.length === 0 ? (
@@ -68,13 +77,7 @@ export default function EmployeeSchedulePage() {
   );
 }
 
-function InterviewStats({ events, upcomingCount }) {
-  const stats = [
-    ['Upcoming', upcomingCount],
-    ['Confirmed', events.filter((e) => e.status === 'confirmed').length],
-    ['Completed', events.filter((e) => e.status === 'completed').length],
-  ];
-
+function InterviewStats({ stats }) {
   return (
     <div className="interview-stats">
       {stats.map(([label, count]) => (
@@ -87,7 +90,7 @@ function InterviewStats({ events, upcomingCount }) {
   );
 }
 
-function TipsSection() {
+const TipsSection = memo(function TipsSection() {
   return (
     <DashboardSection title="Interview Tips & Resources">
       <div className="tips-grid">
@@ -102,4 +105,4 @@ function TipsSection() {
       </div>
     </DashboardSection>
   );
-}
+});

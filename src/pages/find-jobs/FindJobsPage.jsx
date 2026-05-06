@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './FindJobsPage.style.css';
 import { DashboardSection, PageTitle } from '../../components/CommonBlocks';
@@ -63,17 +63,25 @@ export default function FindJobsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const locations = [...new Set(jobs.map((j) => j.location).filter(Boolean))];
+  const locations = useMemo(
+    () => [...new Set(jobs.map((j) => j.location).filter(Boolean))],
+    [jobs]
+  );
 
-  const filteredJobs = jobs.filter((job) => {
+  const filteredJobs = useMemo(() => {
     const q = searchQuery.toLowerCase();
-    const matchesSearch = job.title.toLowerCase().includes(q) || (job.location ?? '').toLowerCase().includes(q);
-    const matchesLocation = locationFilter === '' || job.location === locationFilter;
-    const matchesExperience = experienceFilter === 'all' || job.experience === experienceFilter;
-    return matchesSearch && matchesLocation && matchesExperience;
-  });
+    return jobs.filter((job) => {
+      const matchesSearch = job.title.toLowerCase().includes(q) || (job.location ?? '').toLowerCase().includes(q);
+      const matchesLocation = locationFilter === '' || job.location === locationFilter;
+      const matchesExperience = experienceFilter === 'all' || job.experience === experienceFilter;
+      return matchesSearch && matchesLocation && matchesExperience;
+    });
+  }, [jobs, searchQuery, locationFilter, experienceFilter]);
 
-  const selectedJob = filteredJobs.find((j) => j.id === selectedJobId) ?? filteredJobs[0];
+  const selectedJob = useMemo(
+    () => filteredJobs.find((j) => j.id === selectedJobId) ?? filteredJobs[0],
+    [filteredJobs, selectedJobId]
+  );
 
   const handleSaveJob = async (job) => {
     const isSaved = savedJobIds.includes(String(job.id));
@@ -253,7 +261,7 @@ function JobListingCard({ job, isSelected, isApplied, isSaved, onSelectJob, onAp
   );
 }
 
-function JobSearchTips() {
+const JobSearchTips = memo(function JobSearchTips() {
   return (
     <DashboardSection title="Job Search Tips">
       <div className="tips-grid">
@@ -266,4 +274,4 @@ function JobSearchTips() {
       </div>
     </DashboardSection>
   );
-}
+});

@@ -1,8 +1,11 @@
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardSection } from '../../../components/CommonBlocks';
 
 export default function OverviewTab({ applications, jobTitleMap = {}, profileCompletion, loading, setActiveTab }) {
   const navigate = useNavigate();
+  const shortlisted = useMemo(() => applications.filter((a) => a.status === 'SHORTLISTED').length, [applications]);
+  const hired = useMemo(() => applications.filter((a) => a.status === 'HIRED').length, [applications]);
 
   return (
     <>
@@ -20,8 +23,8 @@ export default function OverviewTab({ applications, jobTitleMap = {}, profileCom
             <h3>Activity</h3>
             <ul className="quick-list">
               <li><strong>{applications.length}</strong> active application{applications.length !== 1 ? 's' : ''}</li>
-              <li><strong>{applications.filter((a) => a.status === 'SHORTLISTED').length}</strong> shortlisted</li>
-              <li><strong>{applications.filter((a) => a.status === 'HIRED').length}</strong> hired</li>
+              <li><strong>{shortlisted}</strong> shortlisted</li>
+              <li><strong>{hired}</strong> hired</li>
             </ul>
           </div>
         </div>

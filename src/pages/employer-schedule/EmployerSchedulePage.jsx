@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { DashboardSection, PageTitle, QuickStatsRow } from '../../components/CommonBlocks';
 import { notify } from '../../utils/notifications';
@@ -112,12 +112,12 @@ export default function EmployerSchedulePage() {
     }
   };
 
-  const stats = [
+  const stats = useMemo(() => [
     { label: 'Total Interviews', count: interviews.length },
     { label: 'Upcoming', count: interviews.filter((i) => i.status !== 'COMPLETED' && i.status !== 'CANCELLED').length },
     { label: 'Completed', count: interviews.filter((i) => i.status === 'COMPLETED').length },
     { label: 'Applications', count: applications.length },
-  ];
+  ], [interviews, applications.length]);
 
   return (
     <main className="page dashboard">
